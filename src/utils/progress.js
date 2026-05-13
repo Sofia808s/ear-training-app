@@ -2,10 +2,12 @@ export const STORAGE_KEY = "ear-training-progress";
 export const COURSE_STORAGE_KEY = "ear-training-course-progress";
 const SEEN_WORLD_UNLOCKS_STORAGE_KEY = "ear-training-seen-world-unlocks";
 const INTRO_SEEN_STORAGE_KEY = "ear-training-intro-seen";
+const LEARNER_SETUP_STORAGE_KEY = "ear-training-learner-setup";
 
 const defaultProgress = {
   correct: 0,
   attempts: 0,
+  practiceDates: [],
   blitzStats: {
     rounds: 0,
     bestCorrect: 0,
@@ -18,10 +20,23 @@ const defaultProgress = {
   }
 };
 
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function withPracticeDate(progress = {}) {
+  const dates = new Set([...(progress.practiceDates || []), getTodayKey()]);
+  return {
+    ...progress,
+    practiceDates: [...dates].sort()
+  };
+}
+
 function normalizeProgress(progress = {}) {
   return {
     correct: progress.correct || 0,
     attempts: progress.attempts || 0,
+    practiceDates: progress.practiceDates || [],
     blitzStats: {
       ...defaultProgress.blitzStats,
       ...(progress.blitzStats || {})
@@ -46,11 +61,11 @@ export function saveProgress(progress) {
 }
 
 export function updateProgress(progress, level, isCorrect) {
-  return normalizeProgress({
+  return normalizeProgress(withPracticeDate({
     ...progress,
     attempts: (progress.attempts || 0) + 1,
     correct: (progress.correct || 0) + (isCorrect ? 1 : 0)
-  });
+  }));
 }
 
 
@@ -85,6 +100,7 @@ export function resetDemoProgress() {
   localStorage.removeItem(COURSE_STORAGE_KEY);
   localStorage.removeItem(SEEN_WORLD_UNLOCKS_STORAGE_KEY);
   localStorage.removeItem(INTRO_SEEN_STORAGE_KEY);
+  localStorage.removeItem(LEARNER_SETUP_STORAGE_KEY);
 }
 
 export function completeCourseTopic(courseProgress, topicId) {
@@ -129,7 +145,7 @@ export function recordBlitzRoundResult(progress, correct, total) {
   const lastAccuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
   const bestCorrect = Math.max(currentStats.bestCorrect || 0, correct);
 
-  return {
+  return normalizeProgress(withPracticeDate({
     ...progress,
     blitzStats: {
       rounds: (currentStats.rounds || 0) + 1,
@@ -141,5 +157,5 @@ export function recordBlitzRoundResult(progress, correct, total) {
       lastAccuracy,
       bestAccuracy: Math.round((bestCorrect / total) * 100)
     }
-  };
+  }));
 }

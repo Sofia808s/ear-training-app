@@ -1,13 +1,15 @@
-import { ArrowLeft, BarChart3, BookOpen, CheckCircle2, Headphones, Home, KeyboardMusic, Library, Lock, Music2, Play, Timer, XCircle } from "lucide-react";
+import { ArrowLeft, BarChart3, BookOpen, CheckCircle2, Crown, Headphones, Home, KeyboardMusic, Library, Lock, Music2, Play, RotateCcw, Sprout, Target, Timer, XCircle } from "lucide-react";
 import { Component, useEffect, useMemo, useState } from "react";
 import { courseSections, courseTopics } from "./data/course";
 import { getSavedLanguage, languageStorageKey, translations } from "./data/translations";
 import { levels } from "./data/trainingLevels";
-import { loadSavedVolume, playChordComparison, playCountdownBeep, playEducationalExamples, playExerciseTones, getAudioPlaybackVersion, playIntervalLearningExamples, playMelodySequence, playIntroAmbience, playPianoAmbience, playReferenceScale, setAudioVolume, stopAllAudio } from "./utils/audio";
+import { loadSavedVolume, playChordComparison, playCountdownBeep, playEducationalExamples, playExerciseTones, getAudioPlaybackVersion, playIntervalLearningExamples, playMelodySequence, playIntroAmbience, playPianoAmbience, playReferenceScale, playRhythmPattern, setAudioVolume, stopAllAudio } from "./utils/audio";
 import { loadCourseProgress, loadProgress, openCourseTopic, recordBlitzRoundResult, recordCourseLessonResult, resetDemoProgress, saveCourseProgress, saveProgress, updateProgress } from "./utils/progress";
 
 const screens = {
   home: "home",
+  practiceHub: "practiceHub",
+  profile: "profile",
   journeyMap: "journeyMap",
   world: "world",
   levels: "levels",
@@ -20,13 +22,16 @@ const screens = {
   course: "course",
   topic: "topic",
   lesson: "lesson",
-  lessonResult: "lessonResult"
+  lessonResult: "lessonResult",
+  miniGame: "miniGame"
 };
 
 const LESSON_TOTAL_QUESTIONS = 5;
 const LESSON_PASSING_SCORE = 3;
 const BLITZ_READY_COUNT = 3;
 const BLITZ_ROUND_TOTAL = 10;
+const MINI_GAME_ROUNDS = 5;
+const RHYTHM_GAME_ROUNDS = 3;
 
 const blitzTimeLimits = {
   notes: 9,
@@ -68,8 +73,21 @@ const melodyPatterns = [
 const melodyModes = ["repeat", "choose", "complete"];
 
 const lessonKnowledgeTypes = ["formula", "description", "tip", "sound", "focus"];
-const guidedLessonPhases = ["intro", "difference", "focus", "challenge", "summary", "question"];
+const guidedLessonPhases = ["intro", "question"];
+const MIN_PRACTICE_CONCEPTS = 2;
 const lessonIntroExamples = {
+  "basic-note-recognition": [
+    { answer: "C", tones: [130.81] },
+    { answer: "G", tones: [392] },
+    { answer: "C", tones: [261.63, 261.63] },
+    { answer: "C", tones: [130.81, 523.25] }
+  ],
+  "high-vs-low-pitch": [
+    { answer: "C", tones: [130.81, 523.25] },
+    { answer: "G", tones: [392, 196] },
+    { answer: "A", tones: [220, 220] },
+    { answer: "E", tones: [164.81, 329.63] }
+  ],
   unison: [
     { answer: "Unison", tones: [261.63, 261.63] },
     { answer: "Unison", tones: [329.63, 329.63] },
@@ -121,15 +139,18 @@ const lessonIntroExamples = {
   ],
   "dominant-seventh-chord": [
     { answer: "Dominant 7th", tones: [261.63, 329.63, 392, 466.16] },
-    { answer: "Dominant 7th", tones: [196, 246.94, 293.66, 349.23] }
+    { answer: "Dominant 7th", tones: [196, 246.94, 293.66, 349.23] },
+    { answer: "Dominant 7th", tones: [174.61, 220, 261.63, 311.13] }
   ],
   "major-seventh-chord": [
     { answer: "Major 7th", tones: [196, 246.94, 293.66, 369.99] },
-    { answer: "Major 7th", tones: [261.63, 329.63, 392, 493.88] }
+    { answer: "Major 7th", tones: [261.63, 329.63, 392, 493.88] },
+    { answer: "Major 7th", tones: [174.61, 220, 261.63, 329.63] }
   ],
   "minor-seventh-chord": [
     { answer: "Minor 7th chord", tones: [293.66, 349.23, 440, 523.25] },
-    { answer: "Minor 7th chord", tones: [220, 261.63, 329.63, 392] }
+    { answer: "Minor 7th chord", tones: [220, 261.63, 329.63, 392] },
+    { answer: "Minor 7th chord", tones: [196, 233.08, 293.66, 349.23] }
   ],
   "half-diminished-seventh-chord": [
     { answer: "Half-diminished 7th", tones: [246.94, 293.66, 349.23, 440] },
@@ -167,8 +188,48 @@ const basicNotesTopicIds = ["basic-note-recognition", "high-vs-low-pitch"];
 const basicIntervalsTopicIds = ["seconds"];
 const basicChordsTopicIds = ["major-minor-triads"];
 const melodyUnlockTopicIds = [...basicNotesTopicIds, ...basicIntervalsTopicIds, ...basicChordsTopicIds];
+const miniGameIds = {
+  soundMatching: "soundMatching",
+  intervalMemory: "intervalMemory",
+  noteMaze: "noteMaze",
+  chordBuilder: "chordBuilder",
+  melodicDirection: "melodicDirection",
+  rhythmTap: "rhythmTap",
+  soundSymbol: "soundSymbol"
+};
+
+const noteScaleIntro = [
+  { name: "C", tones: [261.63] },
+  { name: "D", tones: [293.66] },
+  { name: "E", tones: [329.63] },
+  { name: "F", tones: [349.23] },
+  { name: "G", tones: [392] },
+  { name: "A", tones: [440] },
+  { name: "B", tones: [493.88] },
+  { name: "C+", tones: [523.25] }
+];
 const seenWorldUnlocksStorageKey = "ear-training-seen-world-unlocks";
 const introSeenStorageKey = "ear-training-intro-seen";
+const learnerSetupStorageKey = "ear-training-learner-setup";
+const INTRO_SLIDE_MS = 3200;
+
+function loadLearnerSetup() {
+  try {
+    const saved = localStorage.getItem(learnerSetupStorageKey);
+    return saved ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.warn("[setup] Could not read saved learner setup", error);
+    return null;
+  }
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function waitForUi(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
 
 
 function hasCompletedTopics(courseProgress, topicIds) {
@@ -201,10 +262,14 @@ function getLessonDecoyKey(levelId, type, index) {
 
 const lessonOnlyQuestions = {
   notes: [
-    { answer: "C", tones: [523.25], options: ["C", "E", "G", "A"] },
-    { answer: "E", tones: [164.81], options: ["C", "E", "G", "A"] },
-    { answer: "G", tones: [196], options: ["C", "E", "G", "A"] },
-    { answer: "A", tones: [220], options: ["C", "E", "G", "A"] }
+    { answer: "C", tones: [261.63], options: ["C", "D", "E", "G"] },
+    { answer: "D", tones: [293.66], options: ["C", "D", "F", "A"] },
+    { answer: "E", tones: [329.63], options: ["C", "E", "G", "A"] },
+    { answer: "F", tones: [349.23], options: ["D", "F", "G", "B"] },
+    { answer: "G", tones: [392], options: ["D", "F", "G", "B"] },
+    { answer: "A", tones: [440], options: ["A", "B", "C", "F"] },
+    { answer: "B", tones: [493.88], options: ["B", "D", "G", "A"] },
+    { answer: "C", tones: [523.25], options: ["C", "E", "G", "B"] }
   ],
   intervals: [
     { answer: "Unison", tones: [261.63, 261.63], options: ["Unison", "Octave", "Minor 2nd", "Perfect 5th"] },
@@ -271,9 +336,9 @@ function getHomeJourneySteps(t, unlocks, actions) {
     { id: "scalesModes", icon: BookOpen, unlocked: unlocks.scalesBasicsUnlocked, completed: unlocks.scalesBasicsUnlocked, action: actions.scalesModes, ...worlds.scalesModes },
     { id: "tonality", icon: Music2, unlocked: unlocks.scalesBasicsUnlocked, completed: false, action: actions.tonality, ...worlds.tonality },
     { id: "melody", icon: KeyboardMusic, unlocked: unlocks.melodyUnlocked, completed: false, action: actions.melody, ...worlds.melody },
-    { id: "harmony", icon: Headphones, unlocked: unlocks.chordBasicsUnlocked, completed: false, action: actions.harmony, ...worlds.harmony },
-    { id: "bluesJazz", icon: Timer, unlocked: unlocks.seventhBasicsUnlocked, completed: false, action: actions.bluesJazz, ...worlds.bluesJazz },
-    { id: "intuition", icon: BarChart3, unlocked: unlocks.advancedUnlocked, completed: false, action: actions.intuition, ...worlds.intuition }
+    { id: "harmony", icon: Headphones, unlocked: false, completed: false, action: actions.harmony, ...worlds.harmony },
+    { id: "bluesJazz", icon: Timer, unlocked: false, completed: false, action: actions.bluesJazz, ...worlds.bluesJazz },
+    { id: "intuition", icon: BarChart3, unlocked: false, completed: false, action: actions.intuition, ...worlds.intuition }
   ];
 }
 
@@ -472,6 +537,21 @@ function getLessonKnowledgeOptions(level, type, correctAnswer, allowedAnswers) {
   return shuffleQuestions([...new Set(options)]).slice(0, 4);
 }
 
+function getLessonOptionAnswerPool(level, topic, allowedAnswers) {
+  if (level.id === "intervals") {
+    return getIntervalLessonAnswerPool(topic, allowedAnswers);
+  }
+
+  const answers = [...new Set([...(topic.focusAnswers || []), ...allowedAnswers])].filter(Boolean);
+  const levelAnswers = getUniqueQuestions(getCompleteQuestionPool(level)).map((question) => question.answer).filter(Boolean);
+
+  levelAnswers.forEach((answer) => {
+    if (answers.length < 4 && !answers.includes(answer)) answers.push(answer);
+  });
+
+  return new Set(answers);
+}
+
 function buildKnowledgeQuestion(topic, level, type, correctAnswer, allowedAnswers, index) {
   const answer = getLessonOptionKey(type, correctAnswer);
 
@@ -543,19 +623,23 @@ function getSafeLessonQuestion(questionList, currentIndex) {
   return questionList.find(isValidLessonQuestion) || null;
 }
 
-function getPracticeQuestionsForLevel(level, courseProgress, reviewOnly = false) {
+function getPracticeQuestionsForLevel(level, courseProgress, reviewOnly = false, setup = null) {
   const completePool = getCompleteQuestionPool(level);
   const levelTopics = courseTopics.filter((topic) => topic.levelId === level.id);
   let matchingTopics = levelTopics.filter((topic) => {
-    const status = getTopicStatus(topic, courseProgress);
+    const status = getTopicStatus(topic, courseProgress, setup);
     return reviewOnly ? status === "completed" : status === "completed" || status === "available";
   });
 
   if (matchingTopics.length === 0 && reviewOnly) {
-    matchingTopics = levelTopics.filter((topic) => getTopicStatus(topic, courseProgress) === "available");
+    matchingTopics = levelTopics.filter((topic) => getTopicStatus(topic, courseProgress, setup) === "available");
   }
 
-  if (matchingTopics.length === 0 && levelTopics.length > 0) {
+  if (matchingTopics.length === 0 && setup?.level && setup.level !== "beginner") {
+    matchingTopics = getPersonalizedTopicOrder(setup).filter((topic) => topic.levelId === level.id).slice(0, 2);
+  }
+
+  if (matchingTopics.length === 0 && levelTopics.length > 0 && !setup) {
     matchingTopics = [levelTopics[0]];
   }
 
@@ -566,6 +650,107 @@ function getPracticeQuestionsForLevel(level, courseProgress, reviewOnly = false)
     .filter(Boolean);
 
   return practicePool.length > 0 ? getUniqueQuestions(practicePool) : [];
+}
+
+function getPracticeReadiness(level, courseProgress, reviewOnly = false, setup = null) {
+  const questions = getPracticeQuestionsForLevel(level, courseProgress, reviewOnly, setup);
+  const conceptCount = new Set(questions.map((question) => question.answer)).size;
+  const hasContrast = conceptCount >= MIN_PRACTICE_CONCEPTS;
+
+  return {
+    ready: hasContrast && questions.length >= MIN_PRACTICE_CONCEPTS,
+    conceptCount,
+    questions
+  };
+}
+
+function getReadyPracticeLevels(courseProgress, reviewOnly = false, setup = null) {
+  return levels.filter((level) => getPracticeReadiness(level, courseProgress, reviewOnly, setup).ready);
+}
+
+function getCompletedPracticeQuestionsForLevel(level, courseProgress, setup = null) {
+  const completePool = getCompleteQuestionPool(level);
+  const usableStatuses = setup?.level && setup.level !== "beginner" ? new Set(["completed", "available"]) : new Set(["completed"]);
+  let completedTopics = courseTopics.filter((topic) => topic.levelId === level.id && usableStatuses.has(getTopicStatus(topic, courseProgress, setup)));
+  if (completedTopics.length === 0 && setup?.level && setup.level !== "beginner") {
+    completedTopics = getPersonalizedTopicOrder(setup).filter((topic) => topic.levelId === level.id).slice(0, 2);
+  }
+  const allowedAnswers = new Set(completedTopics.flatMap((topic) => topic.focusAnswers || []));
+
+  return getUniqueQuestions(completePool
+    .filter((question) => allowedAnswers.has(question.answer))
+    .map((question) => prepareQuestionForAllowedAnswers(question, level, allowedAnswers))
+    .filter(Boolean));
+}
+
+function getCompletedPracticeReadiness(level, courseProgress, setup = null) {
+  const questions = getCompletedPracticeQuestionsForLevel(level, courseProgress, setup);
+  const conceptCount = new Set(questions.map((question) => question.answer)).size;
+
+  return {
+    ready: conceptCount >= MIN_PRACTICE_CONCEPTS && questions.length >= MIN_PRACTICE_CONCEPTS,
+    conceptCount,
+    questions
+  };
+}
+
+function getMiniGameReadyLevels(courseProgress, setup = null) {
+  return levels.filter((level) => getCompletedPracticeReadiness(level, courseProgress, setup).ready);
+}
+
+function getMiniGameUnlocks(courseProgress, setup = null) {
+  const intervalLevel = getLevelById("intervals");
+  const readyLevels = getMiniGameReadyLevels(courseProgress, setup);
+  const knowsNotes = ["notes", "student", "advanced"].includes(setup?.level) || setup?.goal === "exams";
+  const advancedTrack = ["student", "advanced"].includes(setup?.level) || setup?.goal === "exams";
+
+  return {
+    soundMatching: readyLevels.length > 0 || knowsNotes,
+    intervalMemory: getCompletedPracticeReadiness(intervalLevel, courseProgress, setup).ready || advancedTrack,
+    noteMaze: courseProgress.completedTopicIds.includes("basic-note-recognition") || knowsNotes,
+    chordBuilder: courseProgress.completedTopicIds.includes("major-minor-triads") || advancedTrack || setup?.goal === "chords",
+    melodicDirection: hasCompletedTopics(courseProgress, basicIntervalsTopicIds) || advancedTrack || setup?.goal === "melodies",
+    rhythmTap: true,
+    soundSymbol: readyLevels.length > 0 || advancedTrack
+  };
+}
+
+function getSoundMatchingQuestion(courseProgress, setup = null) {
+  const readyLevels = getMiniGameReadyLevels(courseProgress, setup);
+  const level = readyLevels[0] || levels[0];
+  const readiness = getCompletedPracticeReadiness(level, courseProgress, setup);
+  const question = getRandomQuestion(level, [], readiness.questions || level.questions);
+
+  return {
+    level,
+    question,
+    options: getDisplayUniqueOptions(question?.options || [], translations.ua)
+  };
+}
+
+function createIntervalMemoryCards(courseProgress, setup = null) {
+  const intervalLevel = getLevelById("intervals");
+  const readiness = getCompletedPracticeReadiness(intervalLevel, courseProgress, setup);
+  const fallbackQuestions = intervalLevel.questions.filter((question) => question.tones?.length === 2);
+  const selectedQuestions = getUniqueQuestions([...(readiness.questions || []), ...fallbackQuestions])
+    .filter((question) => question.tones?.length === 2)
+    .slice(0, 3);
+
+  return shuffleQuestions(selectedQuestions.flatMap((question, index) => [
+    { id: "sound-" + index, pairId: index, kind: "sound", answer: question.answer, tones: question.tones },
+    { id: "name-" + index, pairId: index, kind: "name", answer: question.answer, tones: question.tones }
+  ]));
+}
+
+function createChordBuilderTarget() {
+  return getRandomItem([
+    { root: "C", quality: "major", tones: [261.63, 329.63, 392], answer: "Major triad" },
+    { root: "C", quality: "minor", tones: [261.63, 311.13, 392], answer: "Minor triad" },
+    { root: "G", quality: "major", tones: [196, 246.94, 293.66], answer: "Major triad" },
+    { root: "G", quality: "minor", tones: [196, 233.08, 293.66], answer: "Minor triad" },
+    { root: "F", quality: "major", tones: [174.61, 220, 261.63], answer: "Major triad" },
+    { root: "F", quality: "minor", tones: [174.61, 207.65, 261.63], answer: "Minor triad" }
+  ]);
 }
 
 function addQuestionToHistory(history, question) {
@@ -610,7 +795,7 @@ function getLessonIntroExamples(topic) {
 }
 
 function hasGuidedLesson(topic) {
-  return ["intervals", "chords", "scales"].includes(topic.levelId) && getLessonIntroExamples(topic).length > 0;
+  return ["notes", "intervals", "chords", "scales"].includes(topic.levelId) && getLessonIntroExamples(topic).length > 0;
 }
 
 function getLessonDifferenceExamples(topic) {
@@ -714,11 +899,15 @@ function buildChordComparisonQuestions(topic) {
 function buildLessonQuestions(topic, courseProgress = { completedTopicIds: [] }) {
   const level = getLevelById(topic.levelId);
   const allowedAnswers = getLessonAllowedAnswers(topic, courseProgress);
-  const optionAnswers = level.id === "intervals" ? getIntervalLessonAnswerPool(topic, allowedAnswers) : allowedAnswers;
+  const optionAnswers = getLessonOptionAnswerPool(level, topic, allowedAnswers);
   const comparisonQuestions = buildChordComparisonQuestions(topic).map((question, index) => normalizeLessonQuestion(question, index)).filter(Boolean);
   const lessonPool = getUniqueQuestions(getCompleteQuestionPool(level))
-    .filter((question) => allowedAnswers.has(question.answer))
+    .filter((question) => allowedAnswers.has(question.answer) || (topic.focusAnswers || []).includes(question.answer))
     .map((question, index) => normalizeLessonQuestion(prepareQuestionForAllowedAnswers(question, level, optionAnswers), index))
+    .filter(Boolean);
+  const supportPool = getUniqueQuestions(getCompleteQuestionPool(level))
+    .filter((question) => !allowedAnswers.has(question.answer))
+    .map((question, index) => normalizeLessonQuestion(prepareQuestionForAllowedAnswers(question, level, optionAnswers), index + lessonPool.length))
     .filter(Boolean);
   const focusedQuestions = lessonPool.filter((question) => (topic.focusAnswers || []).includes(question.answer));
   const selectedQuestions = [];
@@ -756,10 +945,23 @@ function buildLessonQuestions(topic, courseProgress = { completedTopicIds: [] })
     selectedQuestions.push(nextQuestion);
   }
 
+  while (selectedQuestions.length < LESSON_TOTAL_QUESTIONS && supportPool.length > 0) {
+    const nextQuestion = pickBalancedQuestion(level, selectedQuestions, supportPool) || supportPool[selectedQuestions.length % supportPool.length];
+    selectedQuestions.push(nextQuestion);
+  }
+
+  while (selectedQuestions.length < LESSON_TOTAL_QUESTIONS && primaryConcept) {
+    selectedQuestions.push(buildKnowledgeQuestion(topic, level, "focus", primaryConcept, optionAnswers, selectedQuestions.length));
+  }
+
   const validQuestions = selectedQuestions
     .map((question, index) => normalizeLessonQuestion(question, index))
     .filter(Boolean)
     .slice(0, LESSON_TOTAL_QUESTIONS);
+
+  while (validQuestions.length < LESSON_TOTAL_QUESTIONS && validQuestions.length > 0) {
+    validQuestions.push({ ...validQuestions[validQuestions.length % validQuestions.length], root: topic.id + "-repeat-" + validQuestions.length });
+  }
 
   if (validQuestions.length < LESSON_TOTAL_QUESTIONS) {
     console.warn("[lesson] Built a short lesson", { topicId: topic.id, count: validQuestions.length });
@@ -794,6 +996,40 @@ function getGuidedLessonText(topic, phase, t) {
     examplesLabel: phaseText.examplesLabel,
     focusLabel: phaseText.focusLabel,
     focus: phase === "summary" ? topicText.listenFor : phaseText.focus(first, second)
+  };
+}
+
+function getCompactLessonIntro(topic, t) {
+  const topicText = getTopicText(topic, t);
+  const examples = getLessonIntroExamples(topic).map((example) => translateAnswer(example.answer, t));
+  const exampleText = [...new Set(examples)].slice(0, 4).join(" · ");
+  const levelKind = topic.levelId;
+  let changes = topicText.listenFor;
+  let structure = topicText.tip;
+
+  if (levelKind === "notes") {
+    changes = t.lessonIntro.notesChanges;
+    structure = t.lessonIntro.notesStructure;
+  } else if (levelKind === "intervals") {
+    changes = t.lessonIntro.intervalChanges;
+    structure = topicText.listenFor;
+  } else if (levelKind === "chords" && topic.id.includes("seventh")) {
+    changes = t.lessonIntro.seventhChanges;
+    structure = topicText.tip;
+  } else if (levelKind === "chords") {
+    changes = t.lessonIntro.chordChanges;
+    structure = topicText.tip;
+  } else if (levelKind === "scales") {
+    changes = t.lessonIntro.scaleChanges;
+    structure = topicText.tip;
+  }
+
+  return {
+    title: topicText.title,
+    text: topicText.description,
+    examples: exampleText,
+    changes,
+    structure
   };
 }
 
@@ -914,6 +1150,7 @@ export default function App() {
   const [lessonPhase, setLessonPhase] = useState("question");
   const [lessonFeedback, setLessonFeedback] = useState(null);
   const [lessonAnswers, setLessonAnswers] = useState([]);
+  const [lessonActiveLabel, setLessonActiveLabel] = useState("");
   const [melodyMode, setMelodyMode] = useState("repeat");
   const [melodyQuestion, setMelodyQuestion] = useState(() => createMelodyQuestion("repeat"));
   const [melodyInput, setMelodyInput] = useState([]);
@@ -921,8 +1158,13 @@ export default function App() {
   const [unlockNotice, setUnlockNotice] = useState(null);
   const [worldTransition, setWorldTransition] = useState(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [introExiting, setIntroExiting] = useState(false);
+  const [introStarted, setIntroStarted] = useState(false);
+  const [introAudioBlocked, setIntroAudioBlocked] = useState(false);
   const [introSlide, setIntroSlide] = useState(0);
+  const [learnerSetup, setLearnerSetup] = useState(loadLearnerSetup);
   const [activeWorldId, setActiveWorldId] = useState("notes");
+  const [activeMiniGame, setActiveMiniGame] = useState(miniGameIds.soundMatching);
   const [navigationStack, setNavigationStack] = useState([]);
 
   const [blitzLevel, setBlitzLevel] = useState(levels[0]);
@@ -944,13 +1186,33 @@ export default function App() {
   function completeIntro() {
     stopCurrentAudio();
     localStorage.setItem(introSeenStorageKey, "true");
-    setShowIntro(false);
-    setIntroSlide(0);
+    setNavigationStack([]);
+    setActiveWorldId("notes");
+    setScreen(screens.home);
+    setIntroExiting(true);
+    window.setTimeout(() => {
+      setShowIntro(false);
+      setIntroSlide(0);
+      setIntroExiting(false);
+      setIntroStarted(false);
+      setIntroAudioBlocked(false);
+    }, 520);
+  }
+
+  function saveLearnerSetup(nextSetup) {
+    const setupWithStart = { ...nextSetup, startedAt: nextSetup.startedAt || new Date().toISOString() };
+    localStorage.setItem(learnerSetupStorageKey, JSON.stringify(setupWithStart));
+    setLearnerSetup(setupWithStart);
   }
 
   function replayIntro() {
     stopCurrentAudio();
     setIntroSlide(0);
+    setNavigationStack([]);
+    setScreen(screens.home);
+    setIntroExiting(false);
+    setIntroStarted(false);
+    setIntroAudioBlocked(false);
     setShowIntro(true);
   }
 
@@ -1005,6 +1267,8 @@ export default function App() {
     if (screen === screens.melody) return "melody";
     if (screen === screens.reference) return "theory";
     if (screen === screens.progress) return "progress";
+    if (screen === screens.practiceHub) return "training";
+    if (screen === screens.profile) return "theory";
     if (screen === screens.world) return activeWorldId;
     return "journey";
   }, [screen, activeWorldId]);
@@ -1012,21 +1276,74 @@ export default function App() {
 
   useEffect(() => {
     stopCurrentAudio();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [screen]);
+
+  async function startIntroExperience() {
+    stopCurrentAudio();
+    setIntroSlide(0);
+    setIntroAudioBlocked(false);
+    const slideCount = t.intro.slides.length;
+    const introDurationMs = slideCount * INTRO_SLIDE_MS;
+
+    try {
+      const started = await playIntroAmbience(introDurationMs / 1000);
+      if (!started) {
+        setIntroAudioBlocked(true);
+        setIntroStarted(false);
+        return false;
+      }
+      setIntroStarted(true);
+      return true;
+    } catch (error) {
+      console.info("[audio] Intro ambience blocked until interaction", error);
+      setIntroAudioBlocked(true);
+      setIntroStarted(false);
+      return false;
+    }
+  }
 
   useEffect(() => {
     if (!showIntro) return undefined;
     let cancelled = false;
+    const slideCount = t.intro.slides.length;
+    const introDurationMs = slideCount * INTRO_SLIDE_MS;
 
-    playIntroAmbience().catch((error) => {
-      if (!cancelled) console.info("[audio] Intro ambience blocked until interaction", error);
+    setIntroSlide(0);
+    startIntroExperience().then((started) => {
+      if (!cancelled && !started) setIntroAudioBlocked(true);
     });
 
     return () => {
       cancelled = true;
       stopCurrentAudio();
     };
-  }, [showIntro]);
+  }, [showIntro, language]);
+
+  useEffect(() => {
+    if (!showIntro || !introStarted) return undefined;
+    let cancelled = false;
+    const slideCount = t.intro.slides.length;
+    const introDurationMs = slideCount * INTRO_SLIDE_MS;
+    const slideTimer = window.setInterval(() => {
+      setIntroSlide((currentSlide) => {
+        if (currentSlide >= slideCount - 1) {
+          window.clearInterval(slideTimer);
+          return currentSlide;
+        }
+        return currentSlide + 1;
+      });
+    }, INTRO_SLIDE_MS);
+    const finishTimer = window.setTimeout(() => {
+      if (!cancelled) completeIntro();
+    }, introDurationMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(slideTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [showIntro, introStarted, language]);
 
   useEffect(() => {
     if (screen !== screens.lesson) return;
@@ -1093,7 +1410,9 @@ export default function App() {
   function startLevel(level, returnEntry = null) {
     stopCurrentAudio();
     if (returnEntry) pushNavigation(returnEntry);
-    const nextQuestion = getRandomQuestion(level, [], getPracticeQuestionsForLevel(level, courseProgress));
+    const readiness = getPracticeReadiness(level, courseProgress, false, learnerSetup);
+    if (!readiness.ready) return;
+    const nextQuestion = getRandomQuestion(level, [], readiness.questions);
 
     setSelectedLevel(level);
     setQuestion(nextQuestion);
@@ -1133,7 +1452,7 @@ export default function App() {
   function tryAgain() {
     stopCurrentAudio();
     const history = addQuestionToHistory(questionHistory, question);
-    const nextQuestion = getRandomQuestion(selectedLevel, history, getPracticeQuestionsForLevel(selectedLevel, courseProgress));
+    const nextQuestion = getRandomQuestion(selectedLevel, history, getPracticeQuestionsForLevel(selectedLevel, courseProgress, false, learnerSetup));
 
     setQuestion(nextQuestion);
     setQuestionHistory(addQuestionToHistory(history, nextQuestion));
@@ -1165,6 +1484,7 @@ export default function App() {
     setLessonPhase(hasGuidedLesson(topic) ? "intro" : "question");
     setLessonFeedback(null);
     setLessonAnswers([]);
+    setLessonActiveLabel("");
     setScreen(screens.lesson);
   }
 
@@ -1174,9 +1494,25 @@ export default function App() {
     const nextPhase = guidedLessonPhases[currentIndex + 1] || "question";
     setLessonPhase(nextPhase);
     setLessonFeedback(null);
+    setLessonActiveLabel("");
   }
 
   async function playGuidedLessonExamples(topic = activeCourseTopic, phase = lessonPhase) {
+    const playbackId = getAudioPlaybackVersion();
+
+    if (topic.id === "basic-note-recognition") {
+      for (const note of noteScaleIntro) {
+        if (playbackId !== getAudioPlaybackVersion()) return;
+        setLessonActiveLabel(note.name);
+        await playEducationalExamples([note], false);
+        if (playbackId !== getAudioPlaybackVersion()) return;
+        setLessonActiveLabel("");
+        await waitForUi(180);
+      }
+      setLessonActiveLabel("");
+      return;
+    }
+
     const examplesByPhase = {
       intro: getLessonIntroExamples(topic),
       difference: getLessonDifferenceExamples(topic),
@@ -1191,12 +1527,19 @@ export default function App() {
       return;
     }
 
-    if (topic.levelId === "intervals") {
-      await playIntervalLearningExamples(examples);
-      return;
+    for (const example of examples) {
+      if (playbackId !== getAudioPlaybackVersion()) return;
+      setLessonActiveLabel(example.answer || "");
+      if (topic.levelId === "intervals") {
+        await playIntervalLearningExamples([example]);
+      } else {
+        await playEducationalExamples([example], topic.levelId === "chords");
+      }
+      if (playbackId !== getAudioPlaybackVersion()) return;
+      setLessonActiveLabel("");
+      await waitForUi(220);
     }
-
-    await playEducationalExamples(examples, topic.levelId === "chords");
+    setLessonActiveLabel("");
   }
 
   function answerLessonQuestion(answer) {
@@ -1236,11 +1579,14 @@ export default function App() {
       ? lessonAnswers
       : [...lessonAnswers, lessonFeedback];
 
-    if (lessonIndex + 1 >= LESSON_TOTAL_QUESTIONS || lessonIndex + 1 >= lessonQuestions.length) {
+    if (lessonIndex + 1 >= LESSON_TOTAL_QUESTIONS) {
       const nextCourseProgress = recordCourseLessonResult(courseProgress, activeCourseTopic.id, nextCorrect, LESSON_TOTAL_QUESTIONS, finalAnswers);
+      const nextPracticeProgress = updateProgress(progress, selectedLevel, nextCorrect >= LESSON_PASSING_SCORE);
       setLessonCorrect(nextCorrect);
       setLessonResult({ correct: nextCorrect, total: LESSON_TOTAL_QUESTIONS, passed: nextCorrect >= LESSON_PASSING_SCORE, answers: finalAnswers });
+      setProgress(nextPracticeProgress);
       setCourseProgress(nextCourseProgress);
+      saveProgress(nextPracticeProgress);
       saveCourseProgress(nextCourseProgress);
       setScreen(screens.lessonResult);
       return;
@@ -1250,8 +1596,8 @@ export default function App() {
     setLessonIndex((currentIndex) => {
       const nextIndex = currentIndex + 1;
       if (nextIndex >= lessonQuestions.length) {
-        console.warn("[lesson] Next index out of bounds", { nextIndex, questionCount: lessonQuestions.length });
-        return 0;
+        console.warn("[lesson] Extending short lesson question list", { nextIndex, questionCount: lessonQuestions.length });
+        return Math.max(0, lessonQuestions.length - 1);
       }
       return nextIndex;
     });
@@ -1317,7 +1663,7 @@ export default function App() {
   function enterBlitzMode(returnEntry = null) {
     stopCurrentAudio();
     if (returnEntry) pushNavigation(returnEntry);
-    if (!isBlitzUnlocked(courseProgress)) return;
+    if (!(isBlitzUnlocked(courseProgress) || learnerSetup?.level === "advanced" || learnerSetup?.goal === "exams") || getReadyPracticeLevels(courseProgress, true, learnerSetup).length === 0) return;
 
     setBlitzPhase("start");
     setBlitzResult(null);
@@ -1328,7 +1674,9 @@ export default function App() {
 
   function chooseBlitzLevel(level) {
     stopCurrentAudio();
-    const nextQuestion = getRandomQuestion(level, [], getPracticeQuestionsForLevel(level, courseProgress, true));
+    const readiness = getPracticeReadiness(level, courseProgress, true, learnerSetup);
+    if (!readiness.ready) return;
+    const nextQuestion = getRandomQuestion(level, [], readiness.questions);
 
     setBlitzLevel(level);
     setBlitzQuestion(nextQuestion);
@@ -1341,8 +1689,12 @@ export default function App() {
 
   function startBlitzRound() {
     stopCurrentAudio();
-    const nextQuestion = getRandomQuestion(blitzLevel, [], getPracticeQuestionsForLevel(blitzLevel, courseProgress, true));
+    const readyLevels = getReadyPracticeLevels(courseProgress, true, learnerSetup);
+    const levelForRound = getPracticeReadiness(blitzLevel, courseProgress, true, learnerSetup).ready ? blitzLevel : readyLevels[0];
+    if (!levelForRound) return;
+    const nextQuestion = getRandomQuestion(levelForRound, [], getPracticeReadiness(levelForRound, courseProgress, true, learnerSetup).questions);
 
+    setBlitzLevel(levelForRound);
     setBlitzQuestionNumber(1);
     setBlitzCorrectCount(0);
     setBlitzQuestion(nextQuestion);
@@ -1356,7 +1708,9 @@ export default function App() {
   function startBlitzQuestion(nextQuestionNumber = blitzQuestionNumber + 1) {
     stopCurrentAudio();
     const history = addQuestionToHistory(blitzQuestionHistory, blitzQuestion);
-    const nextQuestion = getRandomQuestion(blitzLevel, history, getPracticeQuestionsForLevel(blitzLevel, courseProgress, true));
+    const readiness = getPracticeReadiness(blitzLevel, courseProgress, true, learnerSetup);
+    if (!readiness.ready) return;
+    const nextQuestion = getRandomQuestion(blitzLevel, history, readiness.questions);
 
     setBlitzQuestionNumber(nextQuestionNumber);
     setBlitzQuestion(nextQuestion);
@@ -1424,22 +1778,46 @@ export default function App() {
     localStorage.setItem(languageStorageKey, nextLanguage);
   }
 
+  function resetAllProgress() {
+    if (!window.confirm(t.progress.resetConfirm)) return;
+    stopCurrentAudio();
+    resetDemoProgress();
+    setProgress(loadProgress());
+    setCourseProgress(loadCourseProgress());
+    setLearnerSetup(null);
+    setLessonQuestions(buildLessonQuestions(courseTopics[0]));
+    setActiveCourseTopic(courseTopics[0]);
+    setShowIntro(true);
+    setIntroExiting(false);
+    setIntroSlide(0);
+    setNavigationStack([]);
+    setScreen(screens.home);
+  }
+
   const currentLessonQuestion = getSafeLessonQuestion(lessonQuestions, lessonIndex);
   const currentLessonNumber = Math.min(lessonIndex + 1, LESSON_TOTAL_QUESTIONS);
-  const theoryUnlocked = isTheoryUnlocked(courseProgress);
-  const trainingUnlocked = isTrainingUnlocked(courseProgress);
-  const blitzUnlocked = isBlitzUnlocked(courseProgress);
-  const melodyUnlocked = isMelodyUnlocked(courseProgress);
-  const chordBasicsUnlocked = hasCompletedTopics(courseProgress, basicChordsTopicIds);
-  const seventhBasicsUnlocked = courseProgress.completedTopicIds.includes("seventh-chord-basics");
-  const scalesBasicsUnlocked = courseProgress.completedTopicIds.includes("major-scale") || courseProgress.completedTopicIds.includes("natural-minor");
+  const setupUnlockedTopicIds = getPersonalizedUnlockedTopicIds(learnerSetup);
+  const hasPriorSetupLevel = Boolean(learnerSetup && learnerSetup.level !== "beginner");
+  const theoryUnlocked = isTheoryUnlocked(courseProgress) || hasPriorSetupLevel;
+  const trainingUnlocked = isTrainingUnlocked(courseProgress) || hasPriorSetupLevel;
+  const blitzUnlocked = isBlitzUnlocked(courseProgress) || ["student", "advanced"].includes(learnerSetup?.level) || learnerSetup?.goal === "exams";
+  const melodyUnlocked = isMelodyUnlocked(courseProgress) || learnerSetup?.goal === "exams";
+  const chordBasicsUnlocked = hasCompletedTopics(courseProgress, basicChordsTopicIds) || setupUnlockedTopicIds.has("major-minor-triads");
+  const seventhBasicsUnlocked = courseProgress.completedTopicIds.includes("seventh-chord-basics") || setupUnlockedTopicIds.has("seventh-chord-basics");
+  const scalesBasicsUnlocked = courseProgress.completedTopicIds.includes("major-scale") || courseProgress.completedTopicIds.includes("natural-minor") || setupUnlockedTopicIds.has("major-scale") || setupUnlockedTopicIds.has("natural-minor");
   const advancedUnlocked = melodyUnlocked && seventhBasicsUnlocked && scalesBasicsUnlocked;
+  const listeningPracticeReady = getReadyPracticeLevels(courseProgress, false, learnerSetup).length > 0;
+  const blitzPracticeReady = (isBlitzUnlocked(courseProgress) || learnerSetup?.level === "advanced" || learnerSetup?.goal === "exams") && getReadyPracticeLevels(courseProgress, true, learnerSetup).length > 0;
   const worldText = t.homeJourney.worlds;
   const journeySteps = getHomeJourneySteps(t, { theoryUnlocked, trainingUnlocked, blitzUnlocked, melodyUnlocked, chordBasicsUnlocked, seventhBasicsUnlocked, scalesBasicsUnlocked, advancedUnlocked }, {
     notes: () => {}, intervals: () => {}, chords: () => {}, seventhChords: () => {}, scalesModes: () => {}, tonality: () => {}, melody: () => {}, harmony: () => {}, bluesJazz: () => {}, intuition: () => {}
   }).map((world) => ({ ...world, action: () => openWorldDetail(world) }));
   const activeWorld = journeySteps.find((world) => world.id === activeWorldId) || journeySteps[0];
   const continueWorld = journeySteps.find((world) => world.unlocked && !world.completed && isWorldReady(world.id, melodyUnlocked)) || journeySteps.find((world) => world.unlocked) || journeySteps[0];
+  const nextPathTopic = getNextPathTopic(courseProgress, learnerSetup);
+  const mainTabScreens = [screens.home, screens.practiceHub, screens.progress, screens.profile];
+  const needsSetup = !showIntro && !learnerSetup;
+  const showBottomNav = !showIntro && !needsSetup && mainTabScreens.includes(screen);
 
   useEffect(() => {
     const seenWorlds = JSON.parse(localStorage.getItem(seenWorldUnlocksStorageKey) || "[]");
@@ -1467,22 +1845,28 @@ export default function App() {
         </button>
 
         <nav className="nav-actions minimal-nav">
-          {screen !== screens.home && <button onClick={() => { setNavigationStack([]); setScreen(screens.home); }}><Home size={18} />{t.labels.home}</button>}
-          <LanguageSwitcher language={language} onChange={changeLanguage} label={t.languageLabel} />
+          {screen !== screens.home && !mainTabScreens.includes(screen) && <button onClick={() => goBack(screens.home)}><ArrowLeft size={18} />{t.profile.back}</button>}
         </nav>
       </header>
 
-      {showIntro && <CinematicIntro t={t} slide={introSlide} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
+      {showIntro && <CinematicIntro t={t} slide={introSlide} exiting={introExiting} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
+      {needsSetup && <SetupScreen t={t} onSave={saveLearnerSetup} />}
       {worldTransition && <WorldTransitionOverlay world={worldTransition} t={t} onEnter={() => { const action = worldTransition.onEnter; setWorldTransition(null); action?.(); }} onBack={() => setWorldTransition(null)} />}
       {unlockNotice && <WorldUnlockNotice notice={unlockNotice} t={t} onClose={() => setUnlockNotice(null)} />}
 
-      {screen === screens.home && <HomeStartScreen t={t} continueWorld={continueWorld} onContinue={() => openWorldDetail(continueWorld)} onMap={() => { pushNavigation({ screen: screens.home, worldId: activeWorldId }); setScreen(screens.journeyMap); }} onProgress={() => { pushNavigation(getCurrentNavigationEntry()); setScreen(screens.progress); }} onReplayIntro={replayIntro} />}
+      {!needsSetup && screen === screens.home && <PathScreen t={t} setup={learnerSetup} progress={progress} courseProgress={courseProgress} steps={journeySteps} nextTopic={nextPathTopic} onOpenTopic={(topic) => openTopic(topic, { screen: screens.home, worldId: activeWorldId })} onOpenWorld={(world) => openWorldDetail(world, screens.home)} onContinue={() => nextPathTopic ? openTopic(nextPathTopic, { screen: screens.home, worldId: activeWorldId }) : openWorldDetail(continueWorld, screens.home)} onPractice={() => setScreen(screens.practiceHub)} />}
 
       {screen === screens.journeyMap && <JourneyMapScreen t={t} steps={journeySteps} onOpenWorld={(world) => openWorldDetail(world, screens.journeyMap)} onHome={() => goBack(screens.home)} unlockNoticeId={unlockNotice?.id} melodyUnlocked={melodyUnlocked} />}
 
-      {screen === screens.world && <WorldDetailScreen world={activeWorld} t={t} courseProgress={courseProgress} melodyUnlocked={melodyUnlocked} blitzUnlocked={blitzUnlocked} onBack={() => goBack(screens.journeyMap)} onHome={() => { setNavigationStack([]); setScreen(screens.home); }} onOpenTopic={(topic) => openTopic(topic, { screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) })} onCourse={() => enterWorldAction(activeWorld, () => { pushNavigation({ screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) }); setScreen(screens.course); })} onPractice={(levelId) => startLevel(getLevelById(levelId), { screen: screens.world, worldId: activeWorld.id, levelId })} onTheory={() => enterWorldAction(t.homeJourney.theoryWorld, () => { pushNavigation({ screen: screens.world, worldId: activeWorld.id }); setScreen(screens.reference); })} onBlitz={() => enterWorldAction(t.homeJourney.blitzWorld, () => enterBlitzMode({ screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) }))} onMelody={() => openMelodyMode({ screen: screens.world, worldId: activeWorld.id, levelId: "melody" })} />}
+      {screen === screens.world && <WorldDetailScreen world={activeWorld} t={t} setup={learnerSetup} courseProgress={courseProgress} melodyUnlocked={melodyUnlocked} blitzUnlocked={blitzUnlocked} onBack={() => goBack(screens.journeyMap)} onHome={() => { setNavigationStack([]); setScreen(screens.home); }} onOpenTopic={(topic) => openTopic(topic, { screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) })} onCourse={() => { const worldTopics = getWorldTopics(activeWorld.id); const firstOpenTopic = worldTopics.find((topic) => getTopicStatus(topic, courseProgress, learnerSetup) !== "locked") || worldTopics[0]; if (firstOpenTopic) openTopic(firstOpenTopic, { screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) }); }} onPractice={(levelId) => startLevel(getLevelById(levelId), { screen: screens.world, worldId: activeWorld.id, levelId })} onTheory={() => enterWorldAction(t.homeJourney.theoryWorld, () => { pushNavigation({ screen: screens.world, worldId: activeWorld.id }); setScreen(screens.reference); })} onBlitz={() => enterWorldAction(t.homeJourney.blitzWorld, () => enterBlitzMode({ screen: screens.world, worldId: activeWorld.id, levelId: getWorldLevelId(activeWorld.id) }))} onMelody={() => openMelodyMode({ screen: screens.world, worldId: activeWorld.id, levelId: "melody" })} />}
 
       {screen === screens.reference && <TheoryReferenceScreen t={t} onHome={() => goBack(screens.home)} />}
+
+      {screen === screens.practiceHub && <PracticeHubScreen t={t} setup={learnerSetup} courseProgress={courseProgress} listeningReady={listeningPracticeReady} blitzUnlocked={blitzPracticeReady} melodyUnlocked={melodyUnlocked} onListeningQuiz={() => { pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.levels); }} onBlitz={() => enterBlitzMode({ screen: screens.practiceHub, worldId: activeWorldId })} onMelody={() => openMelodyMode({ screen: screens.practiceHub, worldId: activeWorldId })} onOpenMiniGame={(gameId) => { setActiveMiniGame(gameId); pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.miniGame); }} />}
+
+      {screen === screens.miniGame && <MiniGameScreen gameId={activeMiniGame} t={t} setup={learnerSetup} courseProgress={courseProgress} onBack={() => goBack(screens.practiceHub)} onPlayTones={(tones, forceChord) => handleAudioPlayback(() => playExerciseTones(tones, forceChord))} onPlayRhythm={(pattern) => handleAudioPlayback(() => playRhythmPattern(pattern))} onResult={(isCorrect) => { const nextProgress = updateProgress(progress, selectedLevel, isCorrect); setProgress(nextProgress); saveProgress(nextProgress); }} />}
+
+      {!needsSetup && screen === screens.profile && <ProfileScreen t={t} setup={learnerSetup} language={language} onLanguage={changeLanguage} onResetProgress={resetAllProgress} />}
 
       {screen === screens.melody && (
         <MelodyScreen
@@ -1506,8 +1890,8 @@ export default function App() {
         />
       )}
 
-      {screen === screens.course && <CourseScreen courseProgress={courseProgress} t={t} onOpenTopic={(topic) => openTopic(topic, { screen: screens.course, worldId: activeWorldId })} onHome={() => goBack(screens.home)} />}
-      {screen === screens.topic && <TopicScreen topic={activeCourseTopic} courseProgress={courseProgress} t={t} onBack={() => goBack(screens.course)} onStartPractice={() => startLessonPractice(activeCourseTopic)} />}
+      {screen === screens.course && <CourseScreen courseProgress={courseProgress} setup={learnerSetup} t={t} onOpenTopic={(topic) => openTopic(topic, { screen: screens.course, worldId: activeWorldId })} onHome={() => goBack(screens.home)} />}
+      {screen === screens.topic && <TopicScreen topic={activeCourseTopic} courseProgress={courseProgress} setup={learnerSetup} t={t} onBack={() => goBack(screens.course)} onStartPractice={() => startLessonPractice(activeCourseTopic)} />}
       {screen === screens.lesson && (
         <LessonErrorBoundary t={t} resetKey={activeCourseTopic.id + "-" + lessonIndex + "-" + lessonPhase} onRestart={() => startLessonPractice(activeCourseTopic)}>
           <LessonScreen
@@ -1529,21 +1913,24 @@ export default function App() {
             onNext={continueLesson}
             onRestart={() => startLessonPractice(activeCourseTopic)}
             t={t}
+            activeLabel={lessonActiveLabel}
             onBack={() => setScreen(screens.topic)}
           />
         </LessonErrorBoundary>
       )}
-      {screen === screens.lessonResult && lessonResult && <LessonResultScreen topic={activeCourseTopic} result={lessonResult} t={t} onTryAgain={() => startLessonPractice(activeCourseTopic)} onBackCourse={() => goBack(screens.course)} />}
+      {screen === screens.lessonResult && lessonResult && <LessonResultScreen topic={activeCourseTopic} result={lessonResult} t={t} onTryAgain={() => startLessonPractice(activeCourseTopic)} onBackCourse={() => setScreen(screens.topic)} />}
 
       {screen === screens.levels && (
         <section className="page-stack">
           <PageTitle title={t.levelsPage.title} text={t.levelsPage.text} t={t} onHome={() => goBack(screens.home)} />
           <div className="level-grid">
-            {levels.map((level, index) => (
-              <button className="level-card" key={level.id} onClick={() => startLevel(level)} style={{ "--accent": level.color }}>
-                <span className="level-number">0{index + 1}</span><h2>{getLevelText(level, t).title}</h2><p>{getLevelText(level, t).subtitle}</p>
+            {levels.map((level, index) => {
+              const readiness = getPracticeReadiness(level, courseProgress, false, learnerSetup);
+              return (
+              <button className={"level-card " + (!readiness.ready ? "locked" : "")} key={level.id} onClick={() => startLevel(level)} style={{ "--accent": level.color }} disabled={!readiness.ready}>
+                <span className="level-number">0{index + 1}</span><h2>{getLevelText(level, t).title}</h2><p>{readiness.ready ? getLevelText(level, t).subtitle : t.practiceHub.continueLessons}</p>
               </button>
-            ))}
+            );})}
           </div>
         </section>
       )}
@@ -1570,7 +1957,7 @@ export default function App() {
         <section className="training-layout">
           <button className="back-button" onClick={exitBlitz}><ArrowLeft size={18} />{t.blitz.exit}</button>
           <div className="training-card blitz-card">
-            {blitzPhase === "start" && <BlitzStart levels={levels} blitzLevel={blitzLevel} t={t} chooseBlitzLevel={chooseBlitzLevel} getBlitzTimeLimit={getBlitzTimeLimit} startBlitzRound={startBlitzRound} />}
+            {blitzPhase === "start" && <BlitzStart levels={levels} blitzLevel={blitzLevel} t={t} chooseBlitzLevel={chooseBlitzLevel} getBlitzTimeLimit={getBlitzTimeLimit} startBlitzRound={startBlitzRound} courseProgress={courseProgress} setup={learnerSetup} />}
             {blitzPhase === "ready" && <div className="blitz-countdown-screen"><span>{t.blitz.ready}</span><strong>{blitzReadyCount}</strong></div>}
             {blitzPhase === "question" && (
               <>
@@ -1592,22 +1979,14 @@ export default function App() {
           progress={progress}
           courseProgress={courseProgress}
           accuracy={accuracy}
+          setup={learnerSetup}
           t={t}
           onHome={() => setScreen(screens.home)}
-          onResetProgress={() => {
-            if (!window.confirm(t.progress.resetConfirm)) return;
-            resetDemoProgress();
-            setProgress(loadProgress());
-            setCourseProgress(loadCourseProgress());
-            setLessonQuestions(buildLessonQuestions(courseTopics[0]));
-            setActiveCourseTopic(courseTopics[0]);
-            setShowIntro(true);
-            setIntroSlide(0);
-            setNavigationStack([]);
-            setScreen(screens.home);
-          }}
+          onResetProgress={resetAllProgress}
         />
       )}
+
+      {showBottomNav && <BottomNav t={t} activeScreen={screen} onPath={() => setScreen(screens.home)} onPractice={() => setScreen(screens.practiceHub)} onProgress={() => setScreen(screens.progress)} onProfile={() => setScreen(screens.profile)} />}
     </main>
   );
 }
@@ -1662,17 +2041,66 @@ function getWorldTopics(worldId) {
   return courseTopics.filter((topic) => topic.levelId === levelId);
 }
 
-function CinematicIntro({ t, slide, onNext, onSkip }) {
+function SetupScreen({ t, onSave }) {
+  const [level, setLevel] = useState(t.setup.levels[0].id);
+  const [goal, setGoal] = useState(t.setup.goals[0].id);
+  const [plan, setPlan] = useState(t.setup.plans[0].id);
+  const goalInfo = t.setup.goalInfo[goal] || t.setup.goalInfo["notes-intervals"];
+  const planDays = Math.max(1, Number(plan || 3));
+  const durationWeeks = Math.max(2, Math.ceil((goalInfo.topicCount || 6) / planDays));
+
+  return (
+    <section className="setup-screen" role="dialog" aria-label={t.setup.title}>
+      <div className="setup-card">
+        <span className="training-badge">{t.setup.badge}</span>
+        <h1>{t.setup.title}</h1>
+        <p>{t.setup.text}</p>
+
+        <SetupChoice title={t.setup.levelQuestion} options={t.setup.levels} value={level} onChange={setLevel} />
+        <SetupChoice title={t.setup.goalQuestion} options={t.setup.goals} value={goal} onChange={setGoal} />
+        <div className="setup-goal-info">
+          <strong>{goalInfo.title}</strong>
+          <p>{goalInfo.text}</p>
+          <span>{t.setup.prioritizes}: {goalInfo.topics.join(" · ")}</span>
+          <em>{t.setup.estimate(durationWeeks, getSetupLabel(t.setup.plans, plan))}</em>
+        </div>
+        <SetupChoice title={t.setup.planQuestion} options={t.setup.plans} value={plan} onChange={setPlan} />
+
+        <button className="primary-button setup-submit" onClick={() => onSave({ level, goal, plan })}>
+          <Play size={20} />{t.setup.start}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SetupChoice({ title, options, value, onChange }) {
+  return (
+    <div className="setup-choice">
+      <h2>{title}</h2>
+      <div>
+        {options.map((option) => (
+          <button className={value === option.id ? "active" : ""} key={option.id} onClick={() => onChange(option.id)}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CinematicIntro({ t, slide, exiting, onNext, onSkip }) {
   const currentSlide = t.intro.slides[slide] || t.intro.slides[0];
   const isLastSlide = slide >= t.intro.slides.length - 1;
 
   return (
-    <div className="cinematic-intro onboarding-intro" role="dialog" aria-label={t.intro.label}>
+    <div className={"cinematic-intro onboarding-intro " + (exiting ? "intro-exiting" : "")} role="dialog" aria-label={t.intro.label}>
+      <div className="intro-logo-reveal" aria-hidden="true"><Headphones size={34} /></div>
       <div className="intro-notes" aria-hidden="true"><span>♪</span><span>♬</span><span>♩</span><span>♫</span></div>
       <div className="intro-piano-glow" aria-hidden="true"><span /><span /><span /><span /><span /></div>
       <div className="intro-wave-field" aria-hidden="true"><span /><span /><span /></div>
-      <div className="onboarding-slide" key={slide}>
-        <span className="training-badge">{t.intro.step(slide + 1, t.intro.slides.length)}</span>
+      <div className="intro-orbit" aria-hidden="true"><span /><span /><span /></div>
+      <div className="onboarding-slide cinematic-slide" key={slide}>
         <h1>{currentSlide.title}</h1>
         {currentSlide.text && <p>{currentSlide.text}</p>}
         {slide === 0 && <small>{t.intro.author}</small>}
@@ -1682,7 +2110,7 @@ function CinematicIntro({ t, slide, onNext, onSkip }) {
       </div>
       <div className="onboarding-actions">
         <button className="intro-skip" onClick={onSkip}>{t.intro.skip}</button>
-        <button className="primary-button" onClick={isLastSlide ? onSkip : onNext}>{isLastSlide ? t.intro.start : t.intro.next}</button>
+        {isLastSlide && <button className="primary-button" onClick={onSkip}>{t.intro.start}</button>}
       </div>
     </div>
   );
@@ -1718,6 +2146,899 @@ function WorldUnlockNotice({ notice, t, onClose }) {
       </div>
     </div>
   );
+}
+
+
+function getPersonalizedTopicOrder(setup) {
+  const byId = new Map(courseTopics.map((topic) => [topic.id, topic]));
+  const beginner = ["basic-note-recognition", "high-vs-low-pitch"];
+  const intervals = ["seconds", "thirds", "fourths-and-fifths", "tritone", "sixths-and-sevenths"];
+  const chords = ["major-minor-triads", "diminished-augmented-triads"];
+  const sevenths = ["seventh-chord-basics", "dominant-seventh-chord", "major-seventh-chord", "minor-seventh-chord", "half-diminished-seventh-chord", "diminished-seventh-chord", "seventh-chord-resolution"];
+  const scales = ["major-scale", "natural-minor", "harmonic-minor", "melodic-minor"];
+  let orderedIds = [...beginner, ...intervals, ...chords, ...sevenths, ...scales];
+
+  if (setup?.level === "notes") orderedIds = [...intervals, ...chords, ...sevenths, ...scales, ...beginner];
+  if (setup?.level === "student") orderedIds = [...intervals, ...chords, ...sevenths, ...scales, ...beginner];
+  if (setup?.level === "advanced") orderedIds = [...chords, ...sevenths, ...scales, ...intervals, ...beginner];
+  if (setup?.goal === "chords") orderedIds = [...chords, ...sevenths, ...intervals, ...scales, ...beginner];
+  if (setup?.goal === "melodies") orderedIds = [...intervals, ...chords, ...scales, ...sevenths, ...beginner];
+  if (setup?.goal === "exams") orderedIds = [...sevenths, ...scales, ...chords, ...intervals, ...beginner];
+  if (setup?.level === "beginner") orderedIds = [...beginner, ...intervals, ...chords, ...sevenths, ...scales];
+
+  return orderedIds.map((id) => byId.get(id)).filter(Boolean);
+}
+
+function getPersonalizedUnlockedTopicIds(setup) {
+  if (!setup || setup.level === "beginner") {
+    return new Set(["basic-note-recognition"]);
+  }
+
+  const unlockedByLevel = {
+    notes: ["basic-note-recognition", "high-vs-low-pitch", "unison", "octave", "seconds"],
+    student: ["basic-note-recognition", "high-vs-low-pitch", "unison", "octave", "seconds", "thirds", "fourths-and-fifths", "major-minor-triads"],
+    advanced: ["basic-note-recognition", "high-vs-low-pitch", "unison", "octave", "seconds", "thirds", "fourths-and-fifths", "tritone", "sixths-and-sevenths", "major-minor-triads", "diminished-augmented-triads", "seventh-chord-basics", "dominant-seventh-chord", "major-seventh-chord", "minor-seventh-chord", "major-scale", "natural-minor"]
+  };
+  const unlocked = new Set(unlockedByLevel[setup.level] || unlockedByLevel.notes);
+
+  if (setup.goal === "chords") {
+    ["major-minor-triads", "diminished-augmented-triads", "seventh-chord-basics", "dominant-seventh-chord"].forEach((id) => unlocked.add(id));
+  }
+
+  if (setup.goal === "melodies") {
+    ["thirds", "fourths-and-fifths", "major-minor-triads", "major-scale", "natural-minor"].forEach((id) => unlocked.add(id));
+  }
+
+  if (setup.goal === "exams") {
+    [
+      "unison", "octave", "seconds", "thirds", "fourths-and-fifths", "tritone", "sixths-and-sevenths",
+      "major-minor-triads", "diminished-augmented-triads",
+      "seventh-chord-basics", "dominant-seventh-chord", "major-seventh-chord", "minor-seventh-chord", "half-diminished-seventh-chord", "diminished-seventh-chord",
+      "major-scale", "natural-minor", "harmonic-minor", "melodic-minor"
+    ].forEach((id) => unlocked.add(id));
+  }
+
+  return unlocked;
+}
+
+function getNextPathTopic(courseProgress, setup = null) {
+  const personalizedTopics = getPersonalizedTopicOrder(setup);
+  return personalizedTopics.find((topic) => !courseProgress.completedTopicIds.includes(topic.id) && getTopicStatus(topic, courseProgress, setup) !== "locked") || courseTopics.find((topic) => {
+    const status = getTopicStatus(topic, courseProgress, setup);
+    return status === "available" || status === "attempted";
+  }) || courseTopics.find((topic) => !courseProgress.completedTopicIds.includes(topic.id)) || courseTopics[0];
+}
+
+function getUnifiedPathSections(t, setup = null) {
+  const sections = courseSections.flatMap((section) => {
+    if (section.id !== "chords") return [section];
+
+    const triadTopics = section.topics.filter((topic) => !topic.id.includes("seventh"));
+    const seventhTopics = section.topics.filter((topic) => topic.id.includes("seventh"));
+
+    return [
+      { ...section, topics: triadTopics },
+      { id: "seventhChords", title: t.homeJourney.worlds.seventhChords.title, levelId: "chords", topics: seventhTopics }
+    ];
+  });
+
+  if (setup?.level && setup.level !== "beginner") {
+    return sections
+      .map((section) => section.id === "notes" ? { ...section, title: t.path.reviewBasics, review: true } : section);
+  }
+
+  return sections;
+}
+
+function getSetupLabel(options, id) {
+  return options.find((option) => option.id === id)?.label || options[0]?.label || "";
+}
+
+function getPracticePlanDays(setup) {
+  return Math.max(0, Number(setup?.plan || 0));
+}
+
+function getRemainingPracticeDays(setup, practiceDays) {
+  const planDays = getPracticePlanDays(setup);
+  if (!planDays) return 0;
+  if (setup?.plan === "14") return Math.max(0, 14 - practiceDays.length);
+  const practicedThisWeek = getWeekDays().filter((day) => practiceDays.includes(day)).length;
+  return Math.max(0, planDays - practicedThisWeek);
+}
+
+function formatStartedDate(startedAt, locale = "en") {
+  if (!startedAt) return "";
+  try {
+    return new Intl.DateTimeFormat(locale === "ua" ? "uk-UA" : "en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(startedAt));
+  } catch {
+    return startedAt.slice(0, 10);
+  }
+}
+
+function PathScreen({ t, setup, progress, courseProgress, steps, nextTopic, onOpenTopic, onOpenWorld, onContinue, onPractice }) {
+  const totalTopics = courseTopics.length;
+  const completedCount = courseProgress.completedTopicIds.length;
+  const coursePercent = totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
+  const readyWorldIds = ["notes", "intervals", "chords", "seventhChords", "scalesModes"];
+  const futureWorldIds = ["harmony", "bluesJazz", "intuition"];
+  const pathSections = getUnifiedPathSections(t, setup);
+  const goalLabel = setup ? getSetupLabel(t.setup.goals, setup.goal) : "";
+  const practiceDays = getRecentPracticeDays(progress, courseProgress);
+  const streak = getPracticeStreak(practiceDays);
+  const remainingDays = getRemainingPracticeDays(setup, practiceDays);
+  const hasActivity = practiceDays.length > 0 || courseProgress.completedTopicIds.length > 0 || (progress.attempts || 0) > 0;
+
+  return (
+    <section className="path-screen">
+      <div className="path-hero">
+        <div>
+          <span className="training-badge">{t.path.badge}</span>
+          <h1>{t.path.title}</h1>
+          <p>{goalLabel ? t.path.personalSubtitle(goalLabel) : t.path.subtitle}</p>
+        </div>
+        <div className="path-hero-actions">
+          <button className="primary-button" onClick={onContinue}><Play size={20} />{t.path.continue}</button>
+          <button className="secondary-button" onClick={onPractice}><Headphones size={18} />{t.bottomNav.practice}</button>
+        </div>
+      </div>
+
+      <div className="path-progress-card">
+        <div><strong>{t.progress.courseTitle}</strong><span>{completedCount} / {totalTopics}</span></div>
+        <ProgressBar value={coursePercent} label={t.progress.coursePercent} />
+        <div className="motivation-strip">
+          <strong>{hasActivity ? t.motivation.welcomeBack : t.motivation.firstStart}</strong>
+          <span>{hasActivity ? t.motivation.streakLine(streak) : t.motivation.firstSession}</span>
+          <span>{t.motivation.remainingDays(remainingDays, setup?.plan)}</span>
+          <em>{t.motivation.goalLine(goalLabel || t.path.finalGoal)}</em>
+        </div>
+        {nextTopic && (
+          <button className="next-lesson-card recommended-next-card" onClick={() => onOpenTopic(nextTopic)}>
+            <span>{t.path.nextLesson}</span>
+            <strong>{getTopicText(nextTopic, t).title}</strong>
+            <p>{getTopicText(nextTopic, t).description}</p>
+            <em>{t.path.startHere}</em>
+          </button>
+        )}
+      </div>
+
+      <div className="learning-path-map" aria-label={t.path.mapLabel}>
+        {pathSections.map((section) => {
+          const sectionWorldId = section.id === "scales" ? "scalesModes" : section.id;
+          const sectionWorld = steps.find((world) => world.id === sectionWorldId);
+          return (
+            <section className={"path-world-section " + (section.review ? "review-basics-section" : "")} key={section.id}>
+              <div className="path-world-heading">
+                <span className="path-world-icon"><Music2 size={22} /></span>
+                <div><h2>{getSectionTitle(section, t)}</h2><p>{sectionWorld?.description || t.path.sectionText}</p></div>
+                {sectionWorld && readyWorldIds.includes(sectionWorld.id) && <button className="small-link-button" onClick={() => onOpenWorld(sectionWorld)}>{t.path.worldDetails}</button>}
+              </div>
+              <div className="path-node-list">
+                {section.topics.map((topic, index) => {
+                  const fullTopic = { ...topic, sectionId: section.id, sectionTitle: section.title, levelId: section.levelId };
+                  const status = getTopicStatus(fullTopic, courseProgress, setup);
+                  const isCurrent = nextTopic?.id === fullTopic.id;
+                  const displayStatus = status === "locked" && isCurrent ? "available" : status;
+                  const topicText = getTopicText(fullTopic, t);
+                  return (
+                    <button className={"path-node " + displayStatus + (isCurrent ? " current" : "")} key={fullTopic.id} onClick={() => displayStatus !== "locked" && onOpenTopic(fullTopic)} disabled={displayStatus === "locked"}>
+                      <span className="path-node-number">{displayStatus === "completed" ? <CheckCircle2 size={18} /> : displayStatus === "locked" ? <Lock size={18} /> : String(index + 1).padStart(2, "0")}</span>
+                      <span className="path-node-line" aria-hidden="true" />
+                      <span className="path-node-copy"><strong>{topicText.title}</strong><em>{topicText.description}</em></span>
+                      <span className="topic-status">{isCurrent ? <><strong>{t.path.recommended}</strong><em>{t.path.startHere}</em></> : getTopicStatusLabel(displayStatus, t)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        <section className="path-world-section future-path-section">
+          <div className="path-world-heading">
+            <span className="path-world-icon final"><KeyboardMusic size={22} /></span>
+            <div><h2>{t.path.futureTitle}</h2><p>{t.path.futureText}</p></div>
+          </div>
+          <div className="future-world-grid">
+            {steps.filter((world) => futureWorldIds.includes(world.id)).map((world) => (
+              <article className="future-world-card" key={world.id}>
+                <Lock size={18} />
+                <strong>{world.title}</strong>
+                <span>{world.story}</span>
+                <em>{world.lockedText}</em>
+              </article>
+            ))}
+          </div>
+          <div className="concert-goal-card"><Crown size={24} /><strong>{t.path.finalGoal}</strong><span>{t.path.finalGoalText}</span></div>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function PracticeHubScreen({ t, setup, courseProgress, listeningReady, blitzUnlocked, melodyUnlocked, onListeningQuiz, onBlitz, onMelody, onOpenMiniGame }) {
+  const modes = [
+    { id: "listening", icon: Headphones, unlocked: listeningReady, action: onListeningQuiz },
+    { id: "blitz", icon: Timer, unlocked: blitzUnlocked, action: onBlitz },
+    { id: "melody", icon: KeyboardMusic, unlocked: melodyUnlocked, action: onMelody }
+  ];
+  const miniUnlocks = getMiniGameUnlocks(courseProgress, setup);
+
+  return (
+    <section className="page-stack practice-hub-screen">
+      <div className="practice-hero">
+        <span className="training-badge">{t.practiceHub.badge}</span>
+        <h1>{t.practiceHub.title}</h1>
+        <p>{t.practiceHub.text}</p>
+      </div>
+      <div className="practice-mode-grid">
+        {modes.map((mode) => {
+          const Icon = mode.icon;
+          const modeText = t.practiceHub.modes[mode.id];
+          return (
+            <button className={"practice-mode-card " + (mode.unlocked ? "unlocked" : "locked")} key={mode.id} onClick={mode.action} disabled={!mode.unlocked}>
+              <span><Icon size={24} /></span>
+              <strong>{modeText.title}</strong>
+              <p>{modeText.text}</p>
+              <em>{mode.unlocked ? modeText.action : modeText.locked}</em>
+            </button>
+          );
+        })}
+      </div>
+      <section className="mini-game-preview">
+        <h2>{t.practiceHub.miniTitle}</h2>
+        <div className="mini-play-grid">
+          {t.practiceHub.miniGames.map((game) => {
+            const unlocked = miniUnlocks[game.id];
+            return (
+            <button className={"mini-coming-card mini-open-card " + (unlocked ? "unlocked" : "locked")} key={game.id} onClick={() => unlocked && onOpenMiniGame(game.id)} disabled={!unlocked}>
+              {unlocked ? <Play size={20} /> : <Lock size={20} />}
+              <strong>{game.title}</strong>
+              <p>{game.text}</p>
+              <em>{unlocked ? t.practiceHub.modes.mini.action : t.practiceHub.miniLocked[game.id]}</em>
+            </button>
+          );})}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function MiniGameScreen({ gameId, t, setup, courseProgress, onBack, onPlayTones, onPlayRhythm, onResult }) {
+  const game = t.practiceHub.miniGames.find((item) => item.id === gameId) || t.practiceHub.miniGames[0];
+  const miniUnlocks = getMiniGameUnlocks(courseProgress, setup);
+  const unlocked = miniUnlocks[gameId];
+
+  return (
+    <section className="page-stack mini-game-screen">
+      <button className="back-button" onClick={onBack}><ArrowLeft size={18} />{t.bottomNav.practice}</button>
+      <div className="mini-game-stage">
+        <div className="training-header">
+          <span className="training-badge">{t.practiceHub.miniTitle}</span>
+          <h1>{game.title}</h1>
+          <p>{unlocked ? game.instructions : t.practiceHub.miniLocked[gameId]}</p>
+        </div>
+        {!unlocked && <div className="mini-feedback wrong"><Lock size={28} /><strong>{t.practiceHub.continueLessons}</strong></div>}
+        {unlocked && gameId === miniGameIds.soundMatching && <SoundMatchingGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.intervalMemory && <IntervalMemoryGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.noteMaze && <NoteMazeGame t={t} game={game} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.chordBuilder && <ChordBuilderGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.melodicDirection && <MelodicDirectionGame t={t} game={game} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.rhythmTap && <RhythmTapGame t={t} game={game} onBack={onBack} onPlayRhythm={onPlayRhythm} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.soundSymbol && <SoundSymbolGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+      </div>
+    </section>
+  );
+}
+
+function MiniGameShell({ t, game, phase, round, totalRounds, score, children, onStart, onBack, onRestart, resultMeta = [] }) {
+  const points = score * 10;
+
+  if (phase === "ready") {
+    return (
+      <article className="mini-play-card unlocked mini-full-card mini-start-panel">
+        <div className="mini-soundscape" aria-hidden="true"><span /><span /><span /></div>
+        <MiniGameHeader title={game.title} text={game.text} unlocked lockedText="" />
+        <p>{game.instructions}</p>
+        <button className="primary-button mini-start-button" onClick={onStart}><Play size={18} />{t.practiceHub.startGame}</button>
+      </article>
+    );
+  }
+
+  if (phase === "result") {
+    return (
+      <article className="mini-play-card unlocked mini-full-card mini-result-panel">
+        <div className="mini-result-orb"><CheckCircle2 size={44} /></div>
+        <span className="training-badge">{t.practiceHub.resultTitle}</span>
+        <h2>{game.title}</h2>
+        <strong>{t.practiceHub.score(score, totalRounds)}</strong>
+        <p>{t.practiceHub.practicePoints(points)}</p>
+        {resultMeta.length > 0 && <div className="mini-result-meta">{resultMeta.map((item) => <span key={item}>{item}</span>)}</div>}
+        <div className="mini-inline-actions center">
+          <button onClick={onRestart}><RotateCcw size={16} />{t.practiceHub.playAgain}</button>
+          <button onClick={onBack}>{t.practiceHub.returnPractice}</button>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="mini-play-card unlocked mini-full-card mini-session">
+      <div className="mini-game-hud">
+        <span>{t.practiceHub.round(Math.min(round + 1, totalRounds), totalRounds)}</span>
+        <span>{t.practiceHub.score(score, totalRounds)}</span>
+      </div>
+      {children}
+    </article>
+  );
+}
+
+function getMiniGameOptions(question, t) {
+  const fallbackOptions = [
+    "C", "D", "E", "F", "G", "A", "B",
+    "Minor 2nd", "Major 2nd", "Minor 3rd", "Major 3rd", "Perfect 4th", "Perfect 5th",
+    "Major triad", "Minor triad", "Diminished triad", "Augmented triad", "Dominant 7th", "Major 7th", "Minor 7th chord",
+    "Major scale", "Natural minor", "Dorian", "Mixolydian"
+  ];
+  const options = getDisplayUniqueOptions([...(question?.options || []), ...fallbackOptions], t);
+  if (question?.answer && !options.includes(question.answer)) options.unshift(question.answer);
+  const distractors = options.filter((option) => option !== question?.answer);
+  return shuffleQuestions(getDisplayUniqueOptions([question?.answer, ...shuffleQuestions(distractors).slice(0, 3)].filter(Boolean), t));
+}
+
+function createSoundMatchingRound(courseProgress, setup, t) {
+  const round = getSoundMatchingQuestion(courseProgress, setup);
+  return {
+    ...round,
+    options: getMiniGameOptions(round.question, t)
+  };
+}
+
+const soundSymbolMap = {
+  C: "♪ C", D: "♪ D", E: "♪ E", F: "♪ F", G: "♪ G", A: "♪ A", B: "♪ B", "C+": "♪ C",
+  Unison: "P1", "Minor 2nd": "m2", "Major 2nd": "M2", "Minor 3rd": "m3", "Major 3rd": "M3", "Perfect 4th": "P4", Tritone: "TT", "Perfect 5th": "P5", "Minor 6th": "m6", "Major 6th": "M6", "Minor 7th": "m7", "Major 7th interval": "M7", Octave: "P8",
+  "Major triad": "maj", "Minor triad": "min", "Diminished triad": "dim", "Augmented triad": "aug", "Dominant 7th": "dom7", "Major 7th": "maj7", "Minor 7th chord": "min7", "Half-diminished 7th": "ø7", "Diminished 7th": "dim7",
+  "Major scale": "Ionian", "Natural minor": "Aeolian", "Harmonic minor": "harm min", "Melodic minor": "mel min", Dorian: "Dorian", Phrygian: "Phrygian", Lydian: "Lydian", Mixolydian: "Mixolydian"
+};
+
+function getSoundSymbol(answer) {
+  return soundSymbolMap[answer] || answer;
+}
+
+function createSoundSymbolRound(courseProgress, setup, t) {
+  const baseRound = getSoundMatchingQuestion(courseProgress, setup);
+  const rawOptions = getMiniGameOptions(baseRound.question, t);
+  const correctSymbol = getSoundSymbol(baseRound.question.answer);
+  const symbolFallbacks = ["♪ C", "♪ D", "m2", "M2", "m3", "M3", "P5", "maj", "min", "dim", "aug", "dom7", "maj7", "min7", "Ionian", "Aeolian"];
+  const symbolChoices = getDisplayUniqueOptions([correctSymbol, ...rawOptions.filter((option) => option !== baseRound.question.answer).map(getSoundSymbol), ...symbolFallbacks], { answers: {} });
+  const symbolOptions = shuffleQuestions([correctSymbol, ...symbolChoices.filter((option) => option !== correctSymbol).slice(0, 3)]);
+
+  return {
+    ...baseRound,
+    question: {
+      ...baseRound.question,
+      symbolAnswer: correctSymbol,
+      symbolOptions
+    }
+  };
+}
+
+function SoundMatchingGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [round, setRound] = useState(() => createSoundMatchingRound(courseProgress, setup, t));
+  const [feedback, setFeedback] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const options = round.options;
+
+  function nextRound() {
+    if (roundIndex + 1 >= MINI_GAME_ROUNDS) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setRound(createSoundMatchingRound(courseProgress, setup, t));
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setScore(0);
+    setRound(createSoundMatchingRound(courseProgress, setup, t));
+    setFeedback(null);
+  }
+
+  async function playRoundSound() {
+    setIsPlaying(true);
+    await onPlayTones(round.question.tones, round.level.id === "chords");
+    window.setTimeout(() => setIsPlaying(false), 500);
+  }
+
+  function answer(option) {
+    if (feedback) return;
+    const isCorrect = option === round.question.answer;
+    if (isCorrect) setScore((current) => current + 1);
+    setFeedback({
+      isCorrect,
+      answer: option,
+      detail: isCorrect ? t.practiceHub.soundCorrect(translateAnswer(round.question.answer, t)) : t.practiceHub.soundWrong(translateAnswer(round.question.answer, t))
+    });
+    onResult?.(isCorrect);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <button className={"sound-orb-button " + (isPlaying ? "playing" : "")} onClick={playRoundSound}>
+        <span className="sound-orb"><Headphones size={26} /></span>
+        <strong>{t.practiceHub.playSound}</strong>
+        <em>{feedback ? translateAnswer(round.question.answer, t) : t.practiceHub.soundOrb}</em>
+      </button>
+      <div className="mini-answer-grid orb-answer-grid">
+        {options.map((option) => <button className={feedback && option === round.question.answer ? "correct-answer" : ""} key={option} onClick={() => answer(option)}>{translateAnswer(option, t)}</button>)}
+      </div>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={round.question.answer} onNext={nextRound} />}
+    </MiniGameShell>
+  );
+}
+
+function SoundSymbolGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [round, setRound] = useState(() => createSoundSymbolRound(courseProgress, setup, t));
+  const [feedback, setFeedback] = useState(null);
+  const options = round.question.symbolOptions;
+
+  function answer(option) {
+    if (feedback) return;
+    const isCorrect = option === round.question.symbolAnswer;
+    if (isCorrect) setScore((current) => current + 1);
+    setFeedback({
+      isCorrect,
+      answer: option,
+      detail: isCorrect ? t.practiceHub.symbolCorrect : t.practiceHub.soundWrong(round.question.symbolAnswer)
+    });
+    onResult?.(isCorrect);
+  }
+
+  function nextRound() {
+    if (roundIndex + 1 >= MINI_GAME_ROUNDS) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setRound(createSoundSymbolRound(courseProgress, setup, t));
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setScore(0);
+    setRound(createSoundSymbolRound(courseProgress, setup, t));
+    setFeedback(null);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <button className="soundwave-panel" onClick={() => onPlayTones(round.question.tones, round.level.id === "chords")}>
+        <Play size={20} />
+        <span>{t.practiceHub.playSound}</span>
+        <i /><i /><i />
+      </button>
+      <div className="mini-answer-grid symbol-grid">
+        {options.map((option) => <button className={"symbol-card " + (feedback && option === round.question.symbolAnswer ? "correct-answer" : "")} key={option} onClick={() => answer(option)}><strong>{option}</strong></button>)}
+      </div>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={round.question.symbolAnswer} onNext={nextRound} rawAnswer />}
+    </MiniGameShell>
+  );
+}
+
+function IntervalMemoryGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
+  const [phase, setPhase] = useState("ready");
+  const [cards, setCards] = useState(() => createIntervalMemoryCards(courseProgress, setup));
+  const [flipped, setFlipped] = useState([]);
+  const [matched, setMatched] = useState([]);
+  const [attempts, setAttempts] = useState(0);
+  const pairCount = cards.length / 2;
+
+  function resetGame(nextPhase = "ready") {
+    setCards(createIntervalMemoryCards(courseProgress, setup));
+    setFlipped([]);
+    setMatched([]);
+    setAttempts(0);
+    setPhase(nextPhase);
+  }
+
+  function flipCard(card) {
+    if (phase !== "playing" || matched.includes(card.id) || flipped.some((item) => item.id === card.id) || flipped.length >= 2) return;
+    if (card.kind === "sound") onPlayTones(card.tones, false);
+    const nextFlipped = [...flipped, card];
+    setFlipped(nextFlipped);
+
+    if (nextFlipped.length === 2) {
+      const isMatch = nextFlipped[0].pairId === nextFlipped[1].pairId && nextFlipped[0].kind !== nextFlipped[1].kind;
+      setAttempts((current) => current + 1);
+      onResult?.(isMatch);
+      if (isMatch) {
+        const nextMatched = [...matched, nextFlipped[0].id, nextFlipped[1].id];
+        setMatched(nextMatched);
+        setFlipped([]);
+        if (nextMatched.length === cards.length) {
+          window.setTimeout(() => setPhase("result"), 550);
+        }
+      } else {
+        window.setTimeout(() => setFlipped([]), 850);
+      }
+    }
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={matched.length / 2} totalRounds={pairCount || 3} score={matched.length / 2} onStart={() => setPhase("playing")} onBack={onBack} onRestart={() => resetGame("ready")} resultMeta={[t.practiceHub.attempts(attempts), t.practiceHub.matchedPairs(matched.length / 2, pairCount || 3)]}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <div className="memory-card-grid">
+        {cards.map((card) => {
+          const isOpen = flipped.some((item) => item.id === card.id) || matched.includes(card.id);
+          const isMatched = matched.includes(card.id);
+          return (
+            <button className={(isOpen ? "open " : "") + (isMatched ? "matched" : "")} key={card.id} onClick={() => flipCard(card)}>
+              <span className="memory-card-inner">
+                {isOpen ? (card.kind === "sound" ? <Headphones size={20} /> : translateAnswer(card.answer, t)) : "?"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mini-inline-actions"><span>{t.practiceHub.attempts(attempts)}</span><button onClick={() => resetGame("playing")}><RotateCcw size={16} />{t.practiceHub.resetMini}</button></div>
+    </MiniGameShell>
+  );
+}
+
+function NoteMazeGame({ t, game, onBack, onPlayTones, onResult }) {
+  const sequences = [
+    [0, 1, 2, 3],
+    [2, 3, 4, 5],
+    [4, 5, 6, 7],
+    [7, 6, 5, 4],
+    [0, 1, 2, 3, 4]
+  ];
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+  const [mistake, setMistake] = useState(null);
+  const sequence = sequences[roundIndex] || sequences[0];
+  const targetLabel = sequence.map((index) => translateAnswer(noteScaleIntro[index].name, t)).join(" → ");
+
+  function tapNote(index) {
+    if (phase !== "playing" || feedback) return;
+    const isCorrect = index === sequence[stepIndex];
+    if (!isCorrect) {
+      setMistake(index);
+      setFeedback({ isCorrect: false, detail: t.practiceHub.mazeWrong });
+      onResult?.(false);
+      window.setTimeout(() => {
+        setMistake(null);
+        setFeedback(null);
+      }, 760);
+      return;
+    }
+    onPlayTones(noteScaleIntro[index].tones, false);
+    const nextStep = stepIndex + 1;
+    setStepIndex(nextStep);
+    if (nextStep >= sequence.length) {
+      setScore((current) => current + 1);
+      setFeedback({ isCorrect: true, detail: t.practiceHub.mazeCorrect });
+      onResult?.(true);
+    }
+  }
+
+  function nextRound() {
+    if (roundIndex + 1 >= MINI_GAME_ROUNDS) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setStepIndex(0);
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setStepIndex(0);
+    setScore(0);
+    setFeedback(null);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <div className="maze-target"><span>{t.practiceHub.targetSequence}</span><strong>{targetLabel}</strong></div>
+      <div className="note-maze-grid">
+        {noteScaleIntro.map((note, index) => {
+          const passed = sequence.slice(0, stepIndex).includes(index);
+          const active = sequence[stepIndex] === index;
+          return (
+            <button className={(passed ? "passed " : "") + (active ? "active " : "") + (mistake === index ? "mistake" : "")} key={note.name} onClick={() => tapNote(index)}>
+              {translateAnswer(note.name, t)}
+            </button>
+          );
+        })}
+      </div>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={targetLabel} onNext={nextRound} rawAnswer />}
+    </MiniGameShell>
+  );
+}
+
+function getChordBuilderTargets(setup, courseProgress) {
+  const hasSevenths = ["advanced"].includes(setup?.level) || setup?.goal === "exams" || courseProgress.completedTopicIds.includes("dominant-seventh");
+  const triads = [
+    { id: "majorTriad", answer: "Major triad", root: "C", pieces: ["majorThird", "minorThird"], tones: [261.63, 329.63, 392] },
+    { id: "minorTriad", answer: "Minor triad", root: "C", pieces: ["minorThird", "majorThird"], tones: [261.63, 311.13, 392] },
+    { id: "diminishedTriad", answer: "Diminished triad", root: "D", pieces: ["minorThird", "minorThird"], tones: [293.66, 349.23, 415.3] },
+    { id: "augmentedTriad", answer: "Augmented triad", root: "C", pieces: ["majorThird", "majorThird"], tones: [261.63, 329.63, 415.3] }
+  ];
+  const sevenths = [
+    { id: "dominantSeventh", answer: "Dominant 7th", root: "G", pieces: ["majorTriad", "minorSeventh"], tones: [196, 246.94, 293.66, 349.23] },
+    { id: "majorSeventh", answer: "Major 7th", root: "C", pieces: ["majorTriad", "majorSeventh"], tones: [261.63, 329.63, 392, 493.88] },
+    { id: "minorSeventh", answer: "Minor 7th chord", root: "A", pieces: ["minorTriad", "minorSeventh"], tones: [220, 261.63, 329.63, 392] },
+    { id: "halfDiminished", answer: "Half-diminished 7th", root: "B", pieces: ["diminishedTriad", "minorSeventh"], tones: [246.94, 293.66, 349.23, 440] },
+    { id: "diminishedSeventh", answer: "Diminished 7th", root: "B", pieces: ["diminishedTriad", "diminishedSeventh"], tones: [246.94, 293.66, 349.23, 415.3] }
+  ];
+  return hasSevenths ? [...triads, ...sevenths] : triads;
+}
+
+function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [targets] = useState(() => shuffleQuestions(getChordBuilderTargets(setup, courseProgress)).slice(0, MINI_GAME_ROUNDS));
+  const [selected, setSelected] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const target = targets[roundIndex] || targets[0];
+  const pieceOptions = target.pieces.length > 2
+    ? ["majorTriad", "minorTriad", "diminishedTriad", "minorSeventh", "majorSeventh", "diminishedSeventh"]
+    : ["majorThird", "minorThird"];
+
+  function choosePiece(piece) {
+    if (feedback || selected.length >= target.pieces.length) return;
+    setSelected((current) => [...current, piece]);
+  }
+
+  function checkChord() {
+    const isCorrect = selected.length === target.pieces.length && selected.every((piece, index) => piece === target.pieces[index]);
+    if (isCorrect) setScore((current) => current + 1);
+    setFeedback({
+      isCorrect,
+      detail: isCorrect ? t.practiceHub.chordCorrect(translateAnswer(target.answer, t)) : t.practiceHub.chordWrong(target.pieces.map((piece) => t.practiceHub.intervalPieces[piece]).join(" + "))
+    });
+    onResult?.(isCorrect);
+    if (isCorrect) onPlayTones(target.tones, true);
+  }
+
+  function nextRound() {
+    if (roundIndex + 1 >= targets.length) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setSelected([]);
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setScore(0);
+    setSelected([]);
+    setFeedback(null);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={targets.length || MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <div className="chord-target"><span>{t.practiceHub.buildTarget}</span><strong>{target.root} {translateAnswer(target.answer, t)}</strong></div>
+      <div className="chord-stack" aria-label={t.practiceHub.buildTarget}>
+        {target.pieces.map((_, index) => <span className={selected[index] ? "filled" : ""} key={index}>{selected[index] ? t.practiceHub.intervalPieces[selected[index]] : "..."}</span>)}
+      </div>
+      <div className="builder-row">{pieceOptions.map((piece) => <button key={piece} onClick={() => choosePiece(piece)}>{t.practiceHub.intervalPieces[piece]}</button>)}</div>
+      <div className="mini-inline-actions">
+        <button onClick={() => onPlayTones(target.tones, true)}><Play size={16} />{t.practiceHub.playTarget}</button>
+        <button disabled={selected.length !== target.pieces.length || Boolean(feedback)} onClick={checkChord}>{t.practiceHub.checkMini}</button>
+        <button onClick={() => { setSelected([]); setFeedback(null); }}><RotateCcw size={16} />{t.practiceHub.resetMini}</button>
+      </div>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={target.answer} onNext={nextRound} rawAnswer />}
+    </MiniGameShell>
+  );
+}
+
+function MelodicDirectionGame({ t, game, onBack, onPlayTones, onResult }) {
+  const rounds = [
+    { tones: [261.63, 293.66, 329.63], contour: "up" },
+    { tones: [392, 349.23, 329.63], contour: "down" },
+    { tones: [329.63, 329.63, 329.63], contour: "same" },
+    { tones: [261.63, 329.63, 293.66], contour: "upDown" },
+    { tones: [392, 329.63, 349.23], contour: "downUp" }
+  ];
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+  const round = rounds[roundIndex] || rounds[0];
+  const options = ["up", "down", "same", "upDown", "downUp"];
+
+  function choose(option) {
+    if (feedback) return;
+    const isCorrect = option === round.contour;
+    if (isCorrect) setScore((current) => current + 1);
+    setFeedback({
+      isCorrect,
+      detail: t.practiceHub.contourFeedback(t.practiceHub.directionOptions[round.contour])
+    });
+    onResult?.(isCorrect);
+  }
+
+  function nextRound() {
+    if (roundIndex + 1 >= MINI_GAME_ROUNDS) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setScore(0);
+    setFeedback(null);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <button className="secondary-button" onClick={() => onPlayTones(round.tones, false)}><Play size={18} />{t.practiceHub.playSound}</button>
+      <div className={"melody-contour-line " + (feedback ? round.contour : "")}>
+        <span /><span /><span /><span />
+      </div>
+      <div className="mini-answer-grid">
+        {options.map((option) => <button className={feedback && option === round.contour ? "correct-answer" : ""} key={option} onClick={() => choose(option)}>{t.practiceHub.directionOptions[option]}</button>)}
+      </div>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={t.practiceHub.directionOptions[round.contour]} onNext={nextRound} rawAnswer />}
+    </MiniGameShell>
+  );
+}
+
+function RhythmTapGame({ t, game, onBack, onPlayRhythm, onResult }) {
+  const rounds = [
+    [0, 0.48, 0.96],
+    [0, 0.36, 0.72, 1.18],
+    [0, 0.5, 0.74, 1.28]
+  ];
+  const [phase, setPhase] = useState("ready");
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [taps, setTaps] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const pattern = rounds[roundIndex] || rounds[0];
+
+  function playPattern() {
+    setTaps([]);
+    setFeedback(null);
+    onPlayRhythm?.(pattern);
+  }
+
+  function tapBeat() {
+    if (feedback) return;
+    const now = Date.now();
+    const nextTaps = [...taps, now];
+    setTaps(nextTaps);
+    if (nextTaps.length >= pattern.length) {
+      const targetIntervals = pattern.slice(1).map((time, index) => Math.round((time - pattern[index]) * 1000));
+      const tapIntervals = nextTaps.slice(1).map((time, index) => time - nextTaps[index]);
+      const diffs = targetIntervals.map((target, index) => (tapIntervals[index] || 0) - target);
+      const averageDiff = diffs.reduce((sum, diff) => sum + Math.abs(diff), 0) / Math.max(diffs.length, 1);
+      const meanDirection = diffs.reduce((sum, diff) => sum + diff, 0) / Math.max(diffs.length, 1);
+      const isCorrect = averageDiff < 190;
+      if (isCorrect) setScore((current) => current + 1);
+      const rhythmText = isCorrect ? t.practiceHub.close : meanDirection < -80 ? t.practiceHub.tooEarly : meanDirection > 80 ? t.practiceHub.tooLate : t.practiceHub.tryRhythmAgain;
+      setFeedback({ isCorrect, detail: rhythmText });
+      onResult?.(isCorrect);
+    }
+  }
+
+  function nextRound() {
+    if (roundIndex + 1 >= RHYTHM_GAME_ROUNDS) {
+      setPhase("result");
+      setFeedback(null);
+      return;
+    }
+    setRoundIndex((current) => current + 1);
+    setTaps([]);
+    setFeedback(null);
+  }
+
+  function restart() {
+    setPhase("ready");
+    setRoundIndex(0);
+    setScore(0);
+    setTaps([]);
+    setFeedback(null);
+  }
+
+  return (
+    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={RHYTHM_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+      <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
+      <button className="secondary-button" onClick={playPattern}><Play size={18} />{t.practiceHub.playSound}</button>
+      <div className="rhythm-dots">{pattern.map((_, index) => <span className={index < taps.length ? "active" : ""} key={index} />)}</div>
+      <button className="primary-button rhythm-tap-button" onClick={tapBeat}>{t.practiceHub.tapBeat}</button>
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={feedback.detail} onNext={nextRound} rawAnswer />}
+    </MiniGameShell>
+  );
+}
+
+function MiniGameHeader({ title, text, unlocked, lockedText }) {
+  return (
+    <div className="mini-game-header">
+      {unlocked ? <Headphones size={20} /> : <Lock size={20} />}
+      <strong>{title}</strong>
+      <p>{unlocked ? text : lockedText}</p>
+    </div>
+  );
+}
+
+function MiniFeedback({ t, feedback, correctAnswer, onNext, rawAnswer = false }) {
+  return (
+    <div className={"mini-feedback " + (feedback.isCorrect ? "correct" : "wrong")}>
+      <strong>{feedback.isCorrect ? t.practiceHub.correctMini : t.practiceHub.tryAgainMini}</strong>
+      <span>{feedback.detail || t.practiceHub.correctAnswer(rawAnswer ? correctAnswer : translateAnswer(correctAnswer, t))}</span>
+      {!feedback.isCorrect && !feedback.detail && <em>{t.practiceHub.correctAnswer(rawAnswer ? correctAnswer : translateAnswer(correctAnswer, t))}</em>}
+      <button onClick={onNext}>{t.practiceHub.nextMini}</button>
+    </div>
+  );
+}
+
+function ProfileScreen({ t, setup, language, onLanguage, onResetProgress }) {
+  const levelLabel = setup ? getSetupLabel(t.setup.levels, setup.level) : "";
+  const goalLabel = setup ? getSetupLabel(t.setup.goals, setup.goal) : "";
+  const planLabel = setup ? getSetupLabel(t.setup.plans, setup.plan) : "";
+
+  return (
+    <section className="page-stack profile-screen">
+      <div className="profile-hero">
+        <span className="training-badge">{t.profile.badge}</span>
+        <h1>{t.profile.title}</h1>
+        <p>{t.profile.text}</p>
+      </div>
+      <div className="profile-grid">
+        <section className="profile-panel learner-panel"><h2>{t.profile.learningPlan}</h2><p><strong>{t.profile.level}</strong>{levelLabel}</p><p><strong>{t.profile.goal}</strong>{goalLabel}</p><p><strong>{t.profile.plan}</strong>{planLabel}</p></section>
+        <section className="profile-panel compact-profile-panel"><h2>{t.profile.language}</h2><LanguageSwitcher language={language} onChange={onLanguage} label={t.languageLabel} /></section>
+        <section className="profile-panel compact-profile-panel"><h2>{t.profile.aboutTitle}</h2><p>{t.profile.aboutText}</p><small>{t.profile.author}</small></section>
+        <section className="profile-panel compact-profile-panel"><h2>{t.profile.demoTitle}</h2><button className="reset-demo-button" onClick={onResetProgress}>{t.progress.resetDemo}</button></section>
+      </div>
+    </section>
+  );
+}
+
+function BottomNav({ t, activeScreen, onPath, onPractice, onProgress, onProfile }) {
+  const tabs = [
+    { id: screens.home, label: t.bottomNav.path, icon: Music2, action: onPath },
+    { id: screens.practiceHub, label: t.bottomNav.practice, icon: Headphones, action: onPractice },
+    { id: screens.progress, label: t.bottomNav.progress, icon: BarChart3, action: onProgress },
+    { id: screens.profile, label: t.bottomNav.profile, icon: Library, action: onProfile }
+  ];
+
+  return <nav className="bottom-nav" aria-label={t.bottomNav.label}>{tabs.map((tab) => { const Icon = tab.icon; return <button className={activeScreen === tab.id ? "active" : ""} key={tab.id} onClick={tab.action}><Icon size={20} /><span>{tab.label}</span></button>; })}</nav>;
 }
 
 function HomeStartScreen({ t, continueWorld, onContinue, onMap, onProgress, onReplayIntro }) {
@@ -1773,7 +3094,7 @@ function JourneyMapScreen({ t, steps, onOpenWorld, onHome, unlockNoticeId, melod
   );
 }
 
-function WorldDetailScreen({ world, t, courseProgress, melodyUnlocked, blitzUnlocked, onBack, onHome, onOpenTopic, onCourse, onPractice, onTheory, onBlitz, onMelody }) {
+function WorldDetailScreen({ world, t, setup, courseProgress, melodyUnlocked, blitzUnlocked, onBack, onHome, onOpenTopic, onCourse, onPractice, onTheory, onBlitz, onMelody }) {
   const topics = getWorldTopics(world.id);
   const levelId = getWorldLevelId(world.id);
   const ready = isWorldReady(world.id, melodyUnlocked);
@@ -1804,7 +3125,8 @@ function WorldDetailScreen({ world, t, courseProgress, melodyUnlocked, blitzUnlo
           <h2>{t.homeJourney.relatedTopics}</h2>
           {topics.map((topic) => {
             const completed = courseProgress.completedTopicIds.includes(topic.id);
-            return <button key={topic.id} onClick={() => onOpenTopic(topic)}><span>{completed ? <CheckCircle2 size={18} /> : <Music2 size={18} />}</span><strong>{getTopicText(topic, t).title}</strong><small>{getTopicText(topic, t).description}</small></button>;
+            const status = getTopicStatus(topic, courseProgress, setup);
+            return <button key={topic.id} onClick={() => status !== "locked" && onOpenTopic(topic)} disabled={status === "locked"}><span>{completed ? <CheckCircle2 size={18} /> : status === "locked" ? <Lock size={18} /> : <Music2 size={18} />}</span><strong>{getTopicText(topic, t).title}</strong><small>{getTopicText(topic, t).description}</small></button>;
           })}
         </div>
       )}
@@ -2019,44 +3341,107 @@ function ReferenceDetail({ label, value }) {
   return <p><strong>{label}</strong>{value}</p>;
 }
 
-function ProgressScreen({ progress, courseProgress, accuracy, t, onHome, onResetProgress }) {
+function getRecentPracticeDays(progress, courseProgress) {
+  const lessonDates = Object.values(courseProgress.lessonStats || {})
+    .map((stats) => stats.completedAt?.slice(0, 10))
+    .filter(Boolean);
+  return [...new Set([...(progress.practiceDates || []), ...lessonDates])].sort();
+}
+
+function getWeekDays() {
+  const today = new Date();
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    return date.toISOString().slice(0, 10);
+  });
+}
+
+function getPracticeStreak(practiceDays) {
+  const practiced = new Set(practiceDays);
+  let streak = 0;
+  const cursor = new Date();
+
+  while (practiced.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function ProgressScreen({ progress, courseProgress, accuracy, setup, t, onHome }) {
   const totalTopics = courseTopics.length;
   const completedTopics = courseProgress.completedTopicIds.length;
   const coursePercent = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
   const needsPracticeTopics = courseTopics.filter((topic) => getTopicStatus(topic, courseProgress) === "attempted");
-  const blitzStats = progress.blitzStats || {};
+  const practiceDays = getRecentPracticeDays(progress, courseProgress);
+  const weekDays = getWeekDays();
+  const streak = getPracticeStreak(practiceDays);
+  const planLabel = setup ? getSetupLabel(t.setup.plans, setup.plan) : "";
+  const goalLabel = setup ? getSetupLabel(t.setup.goals, setup.goal) : "";
+  const nextTopic = getNextPathTopic(courseProgress, setup);
+  const remainingDays = getRemainingPracticeDays(setup, practiceDays);
+  const practicedThisWeek = weekDays.filter((day) => practiceDays.includes(day)).length;
+  const planDays = getPracticePlanDays(setup);
+  const weeklyPercent = planDays > 0 ? Math.min(100, Math.round((practicedThisWeek / planDays) * 100)) : 0;
+  const pathNodes = Array.from({ length: 7 }, (_, index) => {
+    const threshold = ((index + 1) / 7) * 100;
+    return {
+      active: coursePercent >= threshold,
+      glowing: index < Math.min(7, streak),
+      practiced: index < practicedThisWeek,
+      index
+    };
+  });
 
   return (
     <section className="page-stack progress-dashboard">
       <PageTitle title={t.progress.title} text={t.progress.text} t={t} onHome={onHome} />
 
-      <div className="dashboard-grid simplified-dashboard">
-        <ProgressPanel title={t.progress.courseTitle}>
-          <StatCard label={t.progress.completedTopics} value={completedTopics + " / " + totalTopics} />
+      <div className="progress-garden progress-stage-map">
+        <div className="growth-visual glowing-progress-path" aria-hidden="true" style={{ "--course-growth": Math.max(8, coursePercent) + "%", "--week-growth": Math.max(6, weeklyPercent) + "%" }}>
+          <div className="stage-crown"><Crown size={46} /></div>
+          <div className="path-light" />
+          {pathNodes.map((node) => <span className={(node.active ? "active " : "") + (node.glowing ? "glowing " : "") + (node.practiced ? "practiced" : "")} key={node.index}>♪</span>)}
+          <div className="practice-branch"><Sprout size={38} />{weekDays.map((day, index) => <i className={practiceDays.includes(day) ? "active" : ""} key={day} style={{ "--leaf-index": index }} />)}</div>
+        </div>
+        <div>
+          <span className="training-badge">{t.progress.currentGoal}</span>
+          <h2>{goalLabel || t.path.finalGoal}</h2>
+          <p>{nextTopic ? t.progress.nextStep(getTopicText(nextTopic, t).title) : t.path.finalGoalText}</p>
           <ProgressBar value={coursePercent} label={t.progress.coursePercent} />
+        </div>
+      </div>
+
+      <div className="dashboard-grid motivational-dashboard">
+        <ProgressPanel title={t.progress.weekTitle}>
+          <div className="weekly-calendar">
+            {weekDays.map((day) => {
+              const practiced = practiceDays.includes(day);
+              return <span className={practiced ? "practiced" : ""} key={day}>{t.progress.dayLabel(new Date(day))}</span>;
+            })}
+          </div>
+          <StatCard label={t.progress.streak} value={t.progress.days(streak)} />
+          <StatCard label={t.progress.daysPracticed} value={practicedThisWeek + " / " + (planDays || weekDays.length)} />
+        </ProgressPanel>
+
+        <ProgressPanel title={t.progress.planTitle}>
+          <div className="goal-card"><Target size={22} /><strong>{planLabel}</strong><span>{t.motivation.remainingDays(remainingDays, setup?.plan)}</span><span>{t.progress.planText}</span></div>
+          <StatCard label={t.progress.completedTopics} value={completedTopics + " / " + totalTopics} />
+        </ProgressPanel>
+
+        <ProgressPanel title={t.progress.needsPracticeTopics}>
           <div className="needs-practice-list">
-            <strong>{t.progress.needsPracticeTopics}</strong>
             {needsPracticeTopics.length > 0 ? (
-              needsPracticeTopics.map((topic) => <span key={topic.id}>{getTopicText(topic, t).title}</span>)
+              needsPracticeTopics.slice(0, 3).map((topic) => <span key={topic.id}>{getTopicText(topic, t).title}</span>)
             ) : (
               <span>{t.progress.noNeedsPractice}</span>
             )}
           </div>
-        </ProgressPanel>
-
-        <ProgressPanel title={t.progress.practiceTitle}>
           <StatCard label={t.progress.accuracy} value={accuracy + "%"} />
-          <ProgressBar value={accuracy} label={t.progress.accuracy} />
-        </ProgressPanel>
-
-        <ProgressPanel title={t.progress.blitzTitle}>
-          <div className="dashboard-stats two">
-            <StatCard label={t.progress.bestBlitz} value={(blitzStats.bestCorrect || 0) + " / " + BLITZ_ROUND_TOTAL} />
-            <StatCard label={t.progress.lastBlitz} value={(blitzStats.lastTotal ? blitzStats.lastCorrect : 0) + " / " + (blitzStats.lastTotal || BLITZ_ROUND_TOTAL)} />
-          </div>
         </ProgressPanel>
       </div>
-      <button className="reset-demo-button" onClick={onResetProgress}>{t.progress.resetDemo}</button>
     </section>
   );
 }
@@ -2069,10 +3454,11 @@ function ProgressBar({ value, label }) {
   return <div className="dashboard-progress" aria-label={label}><span style={{ width: Math.min(100, Math.max(0, value)) + "%" }} /></div>;
 }
 
-function getTopicStatus(topic, courseProgress) {
+function getTopicStatus(topic, courseProgress, setup = null) {
   if (courseProgress.completedTopicIds.includes(topic.id)) return "completed";
   const stats = courseProgress.lessonStats?.[topic.id];
   if (stats && !stats.passed) return "attempted";
+  if (getPersonalizedUnlockedTopicIds(setup).has(topic.id)) return "available";
   const topicIndex = courseTopics.findIndex((item) => item.id === topic.id);
   const previousTopic = courseTopics[topicIndex - 1];
   if (!previousTopic || courseProgress.completedTopicIds.includes(previousTopic.id)) return "available";
@@ -2090,7 +3476,7 @@ function getTopicProgressWidth(status) {
   return "0%";
 }
 
-function CourseScreen({ courseProgress, t, onOpenTopic, onHome }) {
+function CourseScreen({ courseProgress, setup, t, onOpenTopic, onHome }) {
   const completedCount = courseProgress.completedTopicIds.length;
   const totalTopics = courseTopics.length;
 
@@ -2106,7 +3492,7 @@ function CourseScreen({ courseProgress, t, onOpenTopic, onHome }) {
               {section.topics.map((topic, index) => {
                 const fullTopic = { ...topic, sectionId: section.id, sectionTitle: section.title, levelId: section.levelId };
                 const topicText = getTopicText(fullTopic, t);
-                const status = getTopicStatus(fullTopic, courseProgress);
+                const status = getTopicStatus(fullTopic, courseProgress, setup);
                 return (
                   <button className={"topic-card map-topic " + status} key={topic.id} onClick={() => status !== "locked" && onOpenTopic(fullTopic)}>
                     <span className="map-step">{index + 1}</span>
@@ -2124,8 +3510,8 @@ function CourseScreen({ courseProgress, t, onOpenTopic, onHome }) {
   );
 }
 
-function TopicScreen({ topic, courseProgress, t, onBack, onStartPractice }) {
-  const status = getTopicStatus(topic, courseProgress);
+function TopicScreen({ topic, courseProgress, setup, t, onBack, onStartPractice }) {
+  const status = getTopicStatus(topic, courseProgress, setup);
   const stats = courseProgress.lessonStats?.[topic.id];
   const topicText = getTopicText(topic, t);
 
@@ -2146,7 +3532,7 @@ function TopicScreen({ topic, courseProgress, t, onBack, onStartPractice }) {
   );
 }
 
-function LessonScreen({ topic, question, questionNumber, totalQuestions, correctCount, phase, feedback, audioPlaying, volume, onVolumeChange, onPlay, onReference, onPlayExamples, onStartQuestions, onAnswer, onNext, onRestart, onBack, t }) {
+function LessonScreen({ topic, question, questionNumber, totalQuestions, correctCount, phase, feedback, audioPlaying, volume, onVolumeChange, onPlay, onReference, onPlayExamples, onStartQuestions, onAnswer, onNext, onRestart, onBack, t, activeLabel }) {
   const isFeedback = phase === "feedback" && feedback;
   const level = getLevelById(topic.levelId);
   const topicText = getTopicText(topic, t);
@@ -2154,20 +3540,23 @@ function LessonScreen({ topic, question, questionNumber, totalQuestions, correct
   const safeOptions = getDisplayUniqueOptions(question?.options || [], t, question?.answer);
   const guidedExamples = getGuidedLessonExamplesForPhase(topic, phase);
 
-  if (["intro", "difference", "focus", "challenge", "summary"].includes(phase)) {
-    const flow = getGuidedLessonText(topic, phase, t);
+  if (phase === "intro") {
+    const intro = getCompactLessonIntro(topic, t);
+    const isNoteScaleIntro = topic.id === "basic-note-recognition";
     return (
       <section className="training-layout lesson-layout">
         <button className="back-button" onClick={onBack}><ArrowLeft size={18} />{t.lesson.backToTopic}</button>
-        <div className="training-card lesson-card">
-          <div className="training-header"><span className="training-badge">{flow.badge}</span><h1>{flow.title}</h1><p>{flow.text}</p></div>
+        <div className={"training-card lesson-card compact-lesson-intro " + (isNoteScaleIntro ? "note-scale-intro" : "")}>
+          <div className="training-header"><span className="training-badge">{t.lesson.listenFirstBadge}</span><h1>{intro.title}</h1><p>{intro.text}</p></div>
+          {isNoteScaleIntro && <div className="note-scale-strip" aria-label={t.lessonIntro.noteOrder}>{noteScaleIntro.map((note, index) => <span className={activeLabel === note.name ? "active" : ""} key={note.name} style={{ "--note-index": index }}>{translateAnswer(note.name, t)}</span>)}</div>}
           <PlayerPanel t={t} onPlay={() => onPlayExamples(phase)} disabled={audioPlaying} volume={volume} onVolumeChange={onVolumeChange} />
-          <div className="topic-theory-grid">
-            <TheoryLine label={flow.examplesLabel} text={guidedExamples.map((example) => translateAnswer(example.answer, t)).join(" · ")} />
-            <TheoryLine label={flow.focusLabel} text={flow.focus} />
-            {phase === "summary" && <TheoryLine label={t.course.tip} text={topicText.tip} />}
+          {!isNoteScaleIntro && activeLabel && <div className="active-musical-label"><span>{t.lessonIntro.nowPlaying}</span><strong>{translateAnswer(activeLabel, t)}</strong></div>}
+          <div className="guided-intro-grid">
+            <TheoryLine label={t.lessonIntro.listenFirst} text={isNoteScaleIntro ? t.lessonIntro.noteOrder : intro.examples} />
+            <TheoryLine label={t.lessonIntro.whatChanges} text={intro.changes} />
+            <TheoryLine label={t.lessonIntro.structureHint} text={intro.structure} />
           </div>
-          <button className="primary-button" onClick={onStartQuestions} disabled={audioPlaying}>{phase === "summary" ? t.lesson.startQuestions : t.lesson.continueLesson}</button>
+          <button className="primary-button" onClick={onStartQuestions} disabled={audioPlaying}>{t.lesson.startQuestions}</button>
         </div>
       </section>
     );
@@ -2244,8 +3633,9 @@ function LessonResultScreen({ topic, result, t, onTryAgain, onBackCourse }) {
   );
 }
 
-function BlitzStart({ levels, blitzLevel, t, chooseBlitzLevel, getBlitzTimeLimit, startBlitzRound }) {
-  return <><div className="training-header"><span className="training-badge">{t.blitz.startBadge}</span><h1>{t.blitz.title}</h1><p>{t.blitz.description}</p></div><div className="blitz-level-grid">{levels.map((level) => <button className={"blitz-level-button " + (blitzLevel.id === level.id ? "active" : "")} key={level.id} onClick={() => chooseBlitzLevel(level)}><strong>{getLevelText(level, t).title}</strong><span>{t.blitz.secondsEach(getBlitzTimeLimit(level))}</span></button>)}</div><button className="primary-button" onClick={startBlitzRound}><Timer size={20} />{t.blitz.start}</button></>;
+function BlitzStart({ levels, blitzLevel, t, chooseBlitzLevel, getBlitzTimeLimit, startBlitzRound, courseProgress, setup }) {
+  const readyLevels = levels.filter((level) => getPracticeReadiness(level, courseProgress, true, setup).ready);
+  return <><div className="training-header"><span className="training-badge">{t.blitz.startBadge}</span><h1>{t.blitz.title}</h1><p>{t.blitz.description}</p></div><div className="blitz-level-grid">{levels.map((level) => { const ready = getPracticeReadiness(level, courseProgress, true, setup).ready; return <button className={"blitz-level-button " + (blitzLevel.id === level.id ? "active" : "")} key={level.id} onClick={() => chooseBlitzLevel(level)} disabled={!ready}><strong>{getLevelText(level, t).title}</strong><span>{ready ? t.blitz.secondsEach(getBlitzTimeLimit(level)) : t.practiceHub.continueLessons}</span></button>; })}</div><button className="primary-button" onClick={startBlitzRound} disabled={readyLevels.length === 0}><Timer size={20} />{t.blitz.start}</button></>;
 }
 
 function BlitzSummary({ correct, total, accuracy, t, onTryAgain, onBackHome }) {

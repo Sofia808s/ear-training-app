@@ -281,21 +281,35 @@ export async function playChordComparison(firstChord, secondChord) {
 
 export async function playEducationalExamples(examples, forceChordPlayback = false) {
   const safeExamples = Array.isArray(examples)
-    ? examples.map((example) => Array.isArray(example?.tones) ? example.tones.filter((tone) => Number.isFinite(tone)) : []).filter((tones) => tones.length >= 2)
+    ? examples.map((example) => Array.isArray(example?.tones) ? example.tones.filter((tone) => Number.isFinite(tone)) : []).filter((tones) => tones.length >= 1)
     : [];
 
   if (safeExamples.length === 0) return false;
 
   const settings = { harmonicDuration: 1.45, pauseAfterHarmonic: 0.78, melodicSpacing: forceChordPlayback ? 0.72 : 0.9, melodicDuration: forceChordPlayback ? 0.56 : 0.66 };
   const exampleGap = 1.15;
-  const totalDuration = safeExamples.reduce((sum, tones) => sum + getHarmonicThenMelodicDuration(tones, settings), 0) + Math.max(0, safeExamples.length - 1) * exampleGap;
+  const getMelodicScaleDuration = (tones) => Math.max(0, tones.length - 1) * 0.52 + 0.42 + 0.08;
+  const getExampleDuration = (tones) => {
+    if (tones.length === 1) return 1.06;
+    if (!forceChordPlayback && tones.length > 3) return getMelodicScaleDuration(tones);
+    return getHarmonicThenMelodicDuration(tones, settings);
+  };
+  const totalDuration = safeExamples.reduce((sum, tones) => sum + getExampleDuration(tones), 0) + Math.max(0, safeExamples.length - 1) * exampleGap;
 
   return runExclusivePlayback(totalDuration, (context, startTime) => {
     let offset = 0;
 
     safeExamples.forEach((tones) => {
-      playHarmonicThenMelodic(context, tones, startTime + offset, settings);
-      offset += getHarmonicThenMelodicDuration(tones, settings) + exampleGap;
+      if (tones.length === 1) {
+        playTone(context, tones[0], startTime + offset, 0.92);
+      } else if (!forceChordPlayback && tones.length > 3) {
+        tones.forEach((tone, index) => {
+          playTone(context, tone, startTime + offset + index * 0.52, 0.42);
+        });
+      } else {
+        playHarmonicThenMelodic(context, tones, startTime + offset, settings);
+      }
+      offset += getExampleDuration(tones) + exampleGap;
     });
   });
 }
@@ -373,24 +387,40 @@ export async function playExerciseTones(tones, forceChordPlayback = false) {
 }
 
 
-export async function playIntroAmbience() {
+export async function playIntroAmbience(durationSeconds = 9.6) {
+  if (audioBusy) return false;
+
   const progression = [
     [130.81, 196, 261.63, 329.63],
     [146.83, 220, 293.66, 349.23],
     [164.81, 246.94, 329.63, 392],
     [196, 261.63, 329.63, 392]
   ];
-  const chordGap = 2.15;
-  const chordDuration = 1.95;
-  const totalDuration = progression.length * chordGap + chordDuration + 0.4;
+  const playbackId = playbackVersion;
+  const chordGap = durationSeconds / progression.length;
+  const chordDuration = Math.max(1.8, chordGap + 0.5);
+  const context = await prepareAudioContext();
+  if (playbackId !== playbackVersion || context.state === "closed") return false;
 
-  return runExclusivePlayback(totalDuration, (context, startTime) => {
-    progression.forEach((chord, chordIndex) => {
-      chord.forEach((tone, toneIndex) => {
-        playTone(context, tone, startTime + chordIndex * chordGap + toneIndex * 0.09, chordDuration);
-      });
+  audioBusy = true;
+  const startTime = context.currentTime + 0.05;
+  masterGain.gain.cancelScheduledValues(startTime);
+  masterGain.gain.setValueAtTime(0.0001, startTime);
+  masterGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, currentVolume), startTime + 1.1);
+  masterGain.gain.setValueAtTime(Math.max(0.0001, currentVolume), startTime + Math.max(1.2, durationSeconds - 1.25));
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSeconds);
+
+  progression.forEach((chord, chordIndex) => {
+    chord.forEach((tone, toneIndex) => {
+      playTone(context, tone, startTime + chordIndex * chordGap + toneIndex * 0.12, chordDuration);
     });
   });
+
+  window.setTimeout(() => {
+    if (playbackId === playbackVersion) audioBusy = false;
+  }, durationSeconds * 1000 + 160);
+
+  return true;
 }
 
 export async function playPianoAmbience() {
@@ -424,6 +454,17 @@ export async function playMelodySequence(tones) {
   return runExclusivePlayback(totalDuration, (context, startTime) => {
     safeTones.forEach((tone, index) => {
       playTone(context, tone, startTime + index * spacing, duration);
+    });
+  });
+}
+
+export async function playRhythmPattern(pattern = [0, 0.42, 0.84, 1.26]) {
+  const safePattern = Array.isArray(pattern) && pattern.length > 0 ? pattern : [0, 0.42, 0.84, 1.26];
+  const totalDuration = Math.max(...safePattern) + 0.22;
+
+  return runExclusivePlayback(totalDuration, (context, startTime) => {
+    safePattern.forEach((offset) => {
+      playSoftUiTone(context, startTime + offset, 760, 0.05);
     });
   });
 }

@@ -23,7 +23,7 @@ export const levels = [
         tip: "In C major, E helps create the happy major sound."
       },
       F: {
-        definition: "F is the fourth note in the C major scale.",
+        definition: "F is the fourth scale degree in C major.",
         sound: "It can feel a little suspended, like it wants to resolve.",
         tip: "Listen for a note just above E and below G."
       },
@@ -201,7 +201,7 @@ export const levels = [
         tip: "Listen for many close notes in a row."
       },
       Lydian: {
-        definition: "Lydian is a major-like mode with a raised fourth note.",
+        definition: "Lydian is a major-like mode with a raised fourth scale degree.",
         sound: "Bright, floating, and dreamy.",
         tip: "It sounds like major, but with extra lift."
       },

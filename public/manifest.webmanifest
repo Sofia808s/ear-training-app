@@ -1,0 +1,10 @@
+{
+  "name": "Ear Training",
+  "short_name": "Ear Training",
+  "description": "A mobile ear-training app for notes, intervals, chords, and melody.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "icons": []
+}

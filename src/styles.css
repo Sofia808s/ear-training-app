@@ -5292,7 +5292,9 @@ span,
 small,
 em,
 button {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
 }
 
 .hero-copy h1,
@@ -5793,5 +5795,450 @@ button {
 
   .bottom-nav button {
     min-height: 42px;
+  }
+}
+
+/* Urgent mobile correction: readable words, stacked cards, and nav-safe scroll space. */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+strong,
+span,
+small,
+em,
+button,
+.path-node-copy,
+.path-node-copy *,
+.topic-card,
+.topic-card *,
+.training-card,
+.training-card *,
+.lesson-card,
+.lesson-card *,
+.mini-play-card,
+.mini-play-card *,
+.practice-mode-card,
+.practice-mode-card *,
+.profile-panel,
+.profile-panel * {
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+p,
+button,
+.topic-card p,
+.path-node-copy em,
+.training-header p,
+.mini-game-header p,
+.profile-panel p,
+.practice-mode-card p,
+.setup-card > p {
+  overflow-wrap: break-word;
+}
+
+.app-shell {
+  overflow-x: clip;
+  padding-bottom: calc(156px + env(safe-area-inset-bottom));
+}
+
+.page-stack,
+.training-layout,
+.result-layout,
+.path-screen,
+.practice-hub-screen,
+.profile-screen,
+.progress-dashboard,
+.mini-game-screen {
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+.path-node-copy,
+.path-node-copy strong,
+.path-node-copy em,
+.topic-card strong,
+.topic-card p {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.path-node-copy strong,
+.topic-card strong,
+.lesson-card h1,
+.lesson-card h2,
+.training-card h1,
+.training-card h2,
+.practice-mode-card strong,
+.mini-coming-card strong {
+  text-wrap: pretty;
+}
+
+.topic-status {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.bottom-nav {
+  bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 12px 12px calc(164px + env(safe-area-inset-bottom));
+  }
+
+  .page-stack,
+  .training-layout,
+  .result-layout,
+  .path-screen,
+  .practice-hub-screen,
+  .profile-screen,
+  .progress-dashboard,
+  .mini-game-screen {
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+
+  .path-world-section,
+  .review-basics-section {
+    padding: 14px;
+    border-radius: 20px;
+    overflow: visible;
+  }
+
+  .path-world-section::before {
+    left: 24px;
+    top: 120px;
+    bottom: 28px;
+  }
+
+  .path-world-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .path-world-heading > div {
+    min-width: min(260px, 100%);
+    flex: 1 1 100%;
+  }
+
+  .small-link-button {
+    margin-left: 0;
+    justify-self: start;
+  }
+
+  .path-node-list,
+  .review-basics-section .path-node-list {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .path-node {
+    grid-template-columns: 1fr;
+    align-items: start;
+    justify-items: start;
+    gap: 10px;
+    min-width: 0;
+    width: 100%;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .path-node-number {
+    width: 36px;
+    height: 36px;
+  }
+
+  .path-node-copy {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+  }
+
+  .path-node-copy strong {
+    display: block;
+    width: 100%;
+    font-size: clamp(1rem, 4.5vw, 1.18rem);
+    line-height: 1.25;
+  }
+
+  .path-node-copy em {
+    display: block;
+    width: 100%;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .path-node .topic-status {
+    grid-column: auto;
+    justify-self: start;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 30px;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+
+  .motivation-strip {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topic-card,
+  .lesson-card,
+  .training-card,
+  .result-card,
+  .practice-mode-card,
+  .mini-coming-card,
+  .profile-panel,
+  .mini-full-card,
+  .mini-game-stage {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .topic-card {
+    min-height: auto;
+  }
+
+  .topic-card strong,
+  .lesson-card h2,
+  .training-card h1 {
+    line-height: 1.22;
+  }
+
+  .guided-intro-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-lesson-intro,
+  .note-scale-intro {
+    overflow: visible;
+  }
+
+  .note-scale-strip {
+    grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+    gap: 8px;
+  }
+
+  .note-scale-strip span {
+    min-width: 58px;
+    min-height: 48px;
+    padding: 8px 6px;
+    white-space: nowrap;
+    font-size: clamp(1rem, 5vw, 1.35rem);
+  }
+
+  .player-panel,
+  .lesson-player-card,
+  .audio-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .volume-control {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .volume-control input {
+    min-width: 0;
+  }
+
+  .answer-button {
+    align-items: flex-start;
+    min-height: auto;
+  }
+
+  .answer-button strong {
+    min-width: 0;
+    line-height: 1.25;
+  }
+
+  .practice-mode-grid,
+  .mini-play-grid,
+  .profile-grid,
+  .progress-grid,
+  .future-world-grid,
+  .course-grid,
+  .topic-grid,
+  .topic-list,
+  .answer-grid,
+  .mini-answer-grid,
+  .symbol-grid,
+  .builder-row,
+  .sound-pair-board {
+    grid-template-columns: 1fr;
+  }
+
+  .mini-session,
+  .mini-start-panel,
+  .mini-result-panel {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .memory-card-grid {
+    grid-template-columns: repeat(3, minmax(84px, 1fr));
+  }
+
+  .note-maze-grid {
+    grid-template-columns: repeat(4, minmax(54px, 1fr));
+  }
+
+  .progress-stage-map {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .glowing-progress-path {
+    min-height: clamp(260px, 78vw, 390px);
+  }
+
+  .setup-screen,
+  .pre-intro-screen,
+  .cinematic-intro {
+    padding: 14px 12px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .setup-choice > div {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-nav {
+    width: min(100vw - 12px, 560px);
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .bottom-nav button {
+    min-height: 50px;
+    padding: 4px 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell {
+    padding-inline: 10px;
+    padding-bottom: calc(172px + env(safe-area-inset-bottom));
+  }
+
+  .path-hero,
+  .practice-hero,
+  .profile-hero,
+  .training-card,
+  .lesson-card,
+  .mini-game-stage,
+  .mini-full-card,
+  .profile-panel,
+  .practice-mode-card,
+  .mini-coming-card,
+  .setup-card,
+  .pre-intro-card {
+    padding: 14px;
+  }
+
+  .path-world-section {
+    padding: 12px;
+  }
+
+  .path-node {
+    padding: 12px;
+  }
+
+  .path-node-copy strong,
+  .topic-card strong {
+    font-size: 1rem;
+  }
+
+  .note-scale-strip {
+    grid-template-columns: repeat(4, minmax(58px, 1fr));
+  }
+
+  .melody-mode-tabs,
+  .melody-note-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .memory-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .note-maze-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bottom-nav span {
+    display: block;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    line-height: 1.05;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-shell {
+    padding-inline: 8px;
+  }
+
+  .note-scale-strip {
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
+  }
+
+  .bottom-nav {
+    width: calc(100vw - 8px);
+  }
+
+  .bottom-nav button {
+    min-height: 48px;
+  }
+
+  .bottom-nav span {
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-shell {
+    padding: 8px 12px calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .path-node {
+    grid-template-columns: 38px minmax(220px, 1fr);
+  }
+
+  .path-node .topic-status {
+    grid-column: 2;
+  }
+
+  .guided-intro-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .note-scale-strip {
+    grid-template-columns: repeat(4, minmax(58px, 1fr));
+  }
+
+  .setup-screen,
+  .pre-intro-screen,
+  .cinematic-intro {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
   }
 }

@@ -1161,6 +1161,7 @@ export default function App() {
   const [introExiting, setIntroExiting] = useState(false);
   const [introStarted, setIntroStarted] = useState(false);
   const [introAudioBlocked, setIntroAudioBlocked] = useState(false);
+  const [introMode, setIntroMode] = useState("pending");
   const [introSlide, setIntroSlide] = useState(0);
   const [learnerSetup, setLearnerSetup] = useState(loadLearnerSetup);
   const [activeWorldId, setActiveWorldId] = useState("notes");
@@ -1196,6 +1197,7 @@ export default function App() {
       setIntroExiting(false);
       setIntroStarted(false);
       setIntroAudioBlocked(false);
+      setIntroMode("pending");
     }, 520);
   }
 
@@ -1213,6 +1215,7 @@ export default function App() {
     setIntroExiting(false);
     setIntroStarted(false);
     setIntroAudioBlocked(false);
+    setIntroMode("pending");
     setShowIntro(true);
   }
 
@@ -1304,25 +1307,24 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    if (!showIntro) return undefined;
-    let cancelled = false;
-    const slideCount = t.intro.slides.length;
-    const introDurationMs = slideCount * INTRO_SLIDE_MS;
+  async function startIntroWithSound() {
+    const started = await startIntroExperience({ resetSlide: true });
+    setIntroMode("sound");
+    if (!started) {
+      setIntroStarted(true);
+    }
+  }
 
+  function startIntroWithoutSound() {
+    stopCurrentAudio();
+    setIntroMode("silent");
     setIntroSlide(0);
-    startIntroExperience().then((started) => {
-      if (!cancelled && !started) setIntroAudioBlocked(true);
-    });
-
-    return () => {
-      cancelled = true;
-      stopCurrentAudio();
-    };
-  }, [showIntro, language]);
+    setIntroAudioBlocked(false);
+    setIntroStarted(true);
+  }
 
   useEffect(() => {
-    if (!showIntro) return undefined;
+    if (!showIntro || introMode === "pending" || !introStarted) return undefined;
     let cancelled = false;
     const slideCount = t.intro.slides.length;
     const introDurationMs = slideCount * INTRO_SLIDE_MS;
@@ -1344,7 +1346,7 @@ export default function App() {
       window.clearInterval(slideTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [showIntro, language]);
+  }, [showIntro, introMode, introStarted, language]);
 
   useEffect(() => {
     if (screen !== screens.lesson) return;
@@ -1850,7 +1852,8 @@ export default function App() {
         </nav>
       </header>
 
-      {showIntro && <CinematicIntro t={t} slide={introSlide} exiting={introExiting} soundAvailable={introStarted} showSoundPrompt={introAudioBlocked || !introStarted} onSound={() => startIntroExperience({ resetSlide: false })} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
+      {showIntro && introMode === "pending" && <PreIntroScreen t={t} onStartSound={startIntroWithSound} onStartSilent={startIntroWithoutSound} />}
+      {showIntro && introMode !== "pending" && <CinematicIntro t={t} slide={introSlide} exiting={introExiting} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
       {needsSetup && <SetupScreen t={t} onSave={saveLearnerSetup} />}
       {worldTransition && <WorldTransitionOverlay world={worldTransition} t={t} onEnter={() => { const action = worldTransition.onEnter; setWorldTransition(null); action?.(); }} onBack={() => setWorldTransition(null)} />}
       {unlockNotice && <WorldUnlockNotice notice={unlockNotice} t={t} onClose={() => setUnlockNotice(null)} />}
@@ -2090,7 +2093,23 @@ function SetupChoice({ title, options, value, onChange }) {
   );
 }
 
-function CinematicIntro({ t, slide, exiting, soundAvailable, showSoundPrompt, onSound, onNext, onSkip }) {
+function PreIntroScreen({ t, onStartSound, onStartSilent }) {
+  return (
+    <div className="pre-intro-screen" role="dialog" aria-label={t.intro.journeyTitle}>
+      <div className="intro-notes" aria-hidden="true"><span>♪</span><span>♬</span><span>♩</span><span>♫</span></div>
+      <div className="intro-wave-field" aria-hidden="true"><span /><span /><span /></div>
+      <div className="pre-intro-card">
+        <span className="pre-intro-logo"><Headphones size={34} /></span>
+        <h1>{t.intro.journeyTitle}</h1>
+        <p>{t.intro.readyLine}</p>
+        <button className="primary-button" onClick={onStartSound}><Play size={18} />{t.intro.startListening}</button>
+        <button className="intro-silent-button" onClick={onStartSilent}>{t.intro.withoutSound}</button>
+      </div>
+    </div>
+  );
+}
+
+function CinematicIntro({ t, slide, exiting, onNext, onSkip }) {
   const currentSlide = t.intro.slides[slide] || t.intro.slides[0];
   const isLastSlide = slide >= t.intro.slides.length - 1;
 
@@ -2111,7 +2130,6 @@ function CinematicIntro({ t, slide, exiting, soundAvailable, showSoundPrompt, on
       </div>
       <div className="onboarding-actions">
         <button className="intro-skip" onClick={onSkip}>{t.intro.skip}</button>
-        {showSoundPrompt && !soundAvailable && <button className="intro-sound-button" onClick={onSound}><Headphones size={18} />{t.intro.tapForSound}</button>}
         {isLastSlide && <button className="primary-button" onClick={onSkip}>{t.intro.start}</button>}
       </div>
     </div>

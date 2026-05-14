@@ -14,7 +14,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 button {
@@ -26,8 +26,8 @@ button {
 
 .app-shell {
   position: relative;
-  min-height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   padding: 24px;
   background:
     radial-gradient(circle at 15% 20%, rgba(124, 58, 237, 0.24), transparent 30%),
@@ -2687,7 +2687,10 @@ button:active:not(:disabled),
   z-index: 50;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background:
     radial-gradient(circle at 50% 38%, rgba(125, 211, 252, 0.12), transparent 28%),
     radial-gradient(circle at 30% 70%, rgba(168, 85, 247, 0.18), transparent 32%),
@@ -3050,7 +3053,7 @@ button:active:not(:disabled),
 .onboarding-actions {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 2;
   display: flex;
   gap: 10px;
@@ -3059,6 +3062,20 @@ button:active:not(:disabled),
 
 .onboarding-actions .intro-skip {
   position: static;
+}
+
+.intro-sound-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #e0f2fe;
+  background: rgba(14, 165, 233, 0.16);
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  font-weight: 900;
 }
 
 .intro-orbit {
@@ -3088,8 +3105,14 @@ button:active:not(:disabled),
   inset: 0;
   z-index: 45;
   display: grid;
-  place-items: center;
-  padding: 24px;
+  align-items: start;
+  justify-items: center;
+  min-height: 100dvh;
+  padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background:
     radial-gradient(circle at 50% 20%, rgba(34, 211, 238, 0.14), transparent 28%),
     linear-gradient(135deg, rgba(3, 7, 18, 0.96), rgba(10, 12, 30, 0.94));
@@ -3097,6 +3120,7 @@ button:active:not(:disabled),
 
 .setup-card {
   width: min(900px, 100%);
+  margin: auto 0;
   display: grid;
   gap: 18px;
   padding: clamp(22px, 4vw, 38px);
@@ -3556,6 +3580,37 @@ button:active:not(:disabled),
 }
 
 @media (max-width: 620px) {
+  .app-shell {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  .cinematic-intro,
+  .setup-screen {
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .setup-screen {
+    padding: 18px 14px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .setup-card {
+    margin: 0;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .setup-choice > div {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-submit {
+    width: 100%;
+  }
+
   .onboarding-actions,
   .home-start-actions,
   .home-mini-actions,

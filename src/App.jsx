@@ -1279,12 +1279,13 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [screen]);
 
-  async function startIntroExperience() {
+  async function startIntroExperience({ resetSlide = true } = {}) {
     stopCurrentAudio();
-    setIntroSlide(0);
+    if (resetSlide) setIntroSlide(0);
     setIntroAudioBlocked(false);
     const slideCount = t.intro.slides.length;
-    const introDurationMs = slideCount * INTRO_SLIDE_MS;
+    const remainingSlides = resetSlide ? slideCount : Math.max(1, slideCount - introSlide);
+    const introDurationMs = remainingSlides * INTRO_SLIDE_MS;
 
     try {
       const started = await playIntroAmbience(introDurationMs / 1000);
@@ -1321,7 +1322,7 @@ export default function App() {
   }, [showIntro, language]);
 
   useEffect(() => {
-    if (!showIntro || !introStarted) return undefined;
+    if (!showIntro) return undefined;
     let cancelled = false;
     const slideCount = t.intro.slides.length;
     const introDurationMs = slideCount * INTRO_SLIDE_MS;
@@ -1343,7 +1344,7 @@ export default function App() {
       window.clearInterval(slideTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [showIntro, introStarted, language]);
+  }, [showIntro, language]);
 
   useEffect(() => {
     if (screen !== screens.lesson) return;
@@ -1849,7 +1850,7 @@ export default function App() {
         </nav>
       </header>
 
-      {showIntro && <CinematicIntro t={t} slide={introSlide} exiting={introExiting} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
+      {showIntro && <CinematicIntro t={t} slide={introSlide} exiting={introExiting} soundAvailable={introStarted} showSoundPrompt={introAudioBlocked || !introStarted} onSound={() => startIntroExperience({ resetSlide: false })} onNext={() => setIntroSlide((current) => Math.min(current + 1, t.intro.slides.length - 1))} onSkip={completeIntro} />}
       {needsSetup && <SetupScreen t={t} onSave={saveLearnerSetup} />}
       {worldTransition && <WorldTransitionOverlay world={worldTransition} t={t} onEnter={() => { const action = worldTransition.onEnter; setWorldTransition(null); action?.(); }} onBack={() => setWorldTransition(null)} />}
       {unlockNotice && <WorldUnlockNotice notice={unlockNotice} t={t} onClose={() => setUnlockNotice(null)} />}
@@ -2089,7 +2090,7 @@ function SetupChoice({ title, options, value, onChange }) {
   );
 }
 
-function CinematicIntro({ t, slide, exiting, onNext, onSkip }) {
+function CinematicIntro({ t, slide, exiting, soundAvailable, showSoundPrompt, onSound, onNext, onSkip }) {
   const currentSlide = t.intro.slides[slide] || t.intro.slides[0];
   const isLastSlide = slide >= t.intro.slides.length - 1;
 
@@ -2110,6 +2111,7 @@ function CinematicIntro({ t, slide, exiting, onNext, onSkip }) {
       </div>
       <div className="onboarding-actions">
         <button className="intro-skip" onClick={onSkip}>{t.intro.skip}</button>
+        {showSoundPrompt && !soundAvailable && <button className="intro-sound-button" onClick={onSound}><Headphones size={18} />{t.intro.tapForSound}</button>}
         {isLastSlide && <button className="primary-button" onClick={onSkip}>{t.intro.start}</button>}
       </div>
     </div>

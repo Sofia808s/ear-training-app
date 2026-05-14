@@ -3,7 +3,7 @@ import { Component, useEffect, useMemo, useState } from "react";
 import { courseSections, courseTopics } from "./data/course";
 import { getSavedLanguage, languageStorageKey, translations } from "./data/translations";
 import { levels } from "./data/trainingLevels";
-import { loadSavedVolume, playChordComparison, playCountdownBeep, playEducationalExamples, playExerciseTones, getAudioPlaybackVersion, playIntervalLearningExamples, playMelodySequence, playIntroAmbience, playPianoAmbience, playReferenceScale, playRhythmPattern, setAudioVolume, stopAllAudio } from "./utils/audio";
+import { loadSavedVolume, playChordComparison, playCountdownBeep, playEducationalExamples, playExerciseTones, getAudioPlaybackVersion, playIntervalLearningExamples, playMelodySequence, playMelodyTimeline, playIntroAmbience, playPianoAmbience, playReferenceScale, playRhythmPattern, setAudioVolume, stopAllAudio } from "./utils/audio";
 import { loadCourseProgress, loadProgress, openCourseTopic, recordBlitzRoundResult, recordCourseLessonResult, resetDemoProgress, saveCourseProgress, saveProgress, updateProgress } from "./utils/progress";
 
 const screens = {
@@ -60,17 +60,19 @@ const melodyNoteButtons = [
 const melodyFrequencies = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25];
 
 const melodyPatterns = [
-  [0, 1, 2],
-  [0, 2, 1],
-  [0, 2, 4],
-  [0, 1, 3, 2],
-  [0, 3, 2, 4],
-  [0, 2, 4, 5],
-  [0, 4, 3, 1, 2],
-  [0, 1, 2, 4, 3]
+  [0, 1, 2, 3, 4, 5],
+  [0, 2, 4, 5, 4, 2],
+  [4, 3, 2, 1, 0, 2],
+  [0, 1, 3, 4, 5, 4, 2],
+  [2, 3, 5, 4, 3, 1, 0],
+  [0, 2, 1, 3, 2, 4, 5],
+  [5, 4, 2, 0, 1, 3, 2],
+  [0, 1, 2, 4, 3, 5, 7, 5],
+  [7, 6, 5, 4, 2, 3, 1, 0],
+  [0, 2, 4, 7, 6, 4, 2, 0]
 ];
 
-const melodyModes = ["repeat", "choose", "complete"];
+const melodyModes = ["repeat", "choose", "complete", "free"];
 
 const lessonKnowledgeTypes = ["formula", "description", "tip", "sound", "focus"];
 const guidedLessonPhases = ["intro", "question"];
@@ -358,6 +360,10 @@ function melodyPatternsMatch(firstSequence, secondSequence) {
   return firstPattern.length === secondPattern.length && firstPattern.every((step, index) => step === secondPattern[index]);
 }
 
+function melodySequencesMatch(firstSequence, secondSequence) {
+  return Array.isArray(firstSequence) && Array.isArray(secondSequence) && firstSequence.length === secondSequence.length && firstSequence.every((degree, index) => degree === secondSequence[index]);
+}
+
 
 function formatMelodyPattern(sequence, t) {
   return sequence.map((degree) => translateAnswer(melodyNoteButtons.find((note) => note.degree === degree)?.name || "C", t)).join(" - ");
@@ -367,7 +373,53 @@ function getMelodyTones(sequence) {
   return sequence.map((degree) => melodyFrequencies[Math.max(0, Math.min(melodyFrequencies.length - 1, degree))]);
 }
 
+function getFreeMelodySteps(input) {
+  return (Array.isArray(input) ? input : [])
+    .map((step) => Array.isArray(step) ? step : [step])
+    .map((step) => step.filter((note) => note && Number.isFinite(note.degree)))
+    .filter((step) => step.length > 0);
+}
+
+function getFreeMelodyToneSteps(input) {
+  return getFreeMelodySteps(input).map((step) => step.map((note) => melodyFrequencies[Math.max(0, Math.min(melodyFrequencies.length - 1, note.degree))]));
+}
+
+function getFreeMelodyFeedback(input, t) {
+  const steps = getFreeMelodySteps(input);
+  if (steps.length < 2) return "";
+
+  const topLine = steps.map((step) => Math.max(...step.map((note) => note.degree)));
+  const first = topLine[0];
+  const last = topLine[topLine.length - 1];
+  const hasHarmony = steps.some((step) => step.length > 1);
+  const repeatedSteps = topLine.filter((degree, index) => index > 0 && degree === topLine[index - 1]).length;
+  const direction = last - first;
+  const leaps = topLine.slice(1).map((degree, index) => Math.abs(degree - topLine[index]));
+  const hasLargeLeap = leaps.some((step) => step >= 4);
+  const turns = topLine.slice(2).filter((degree, index) => {
+    const before = topLine[index];
+    const middle = topLine[index + 1];
+    return (middle > before && degree < middle) || (middle < before && degree > middle);
+  }).length;
+  const stableEnding = [0, 2, 4, 7].includes(last);
+
+  if (hasHarmony && stableEnding) return t.melody.freeFeedback.harmonyStable;
+  if (hasHarmony) return t.melody.freeFeedback.harmonyColor;
+  if (stableEnding && Math.abs(direction) <= 2) return t.melody.freeFeedback.balanced;
+  if (stableEnding) return t.melody.freeFeedback.stableEnding;
+  if (direction >= 3) return t.melody.freeFeedback.upward;
+  if (direction <= -3) return t.melody.freeFeedback.resolution;
+  if (turns >= 2) return t.melody.freeFeedback.contour;
+  if (repeatedSteps >= Math.max(2, Math.floor(topLine.length / 2))) return t.melody.freeFeedback.rhythm;
+  if (hasLargeLeap) return t.melody.freeFeedback.spacing;
+  return t.melody.freeFeedback.unfinished;
+}
+
 function createMelodyQuestion(mode = "repeat") {
+  if (mode === "free") {
+    return { mode, sequence: [], tones: [], options: melodyNoteButtons };
+  }
+
   const sequence = [...getRandomItem(melodyPatterns)];
 
   if (mode === "choose") {
@@ -1612,7 +1664,6 @@ export default function App() {
   function openMelodyMode(returnEntry = null) {
     stopCurrentAudio();
     if (returnEntry) pushNavigation(returnEntry);
-    if (!isMelodyUnlocked(courseProgress)) return;
 
     const nextMode = melodyMode || "repeat";
     setMelodyMode(nextMode);
@@ -1638,8 +1689,29 @@ export default function App() {
   }
 
   function addMelodyNote(note) {
-    if (melodyFeedback || melodyMode !== "repeat") return;
-    setMelodyInput((currentInput) => currentInput.length >= melodyQuestion.sequence.length ? currentInput : [...currentInput, note]);
+    if (melodyFeedback || !["repeat", "free"].includes(melodyMode)) return;
+    setMelodyInput((currentInput) => {
+      if (melodyMode === "free") {
+        const steps = Array.isArray(currentInput) ? currentInput : [];
+        const lastStep = Array.isArray(steps[steps.length - 1]) ? steps[steps.length - 1] : null;
+        if (!lastStep) return [[note]];
+        if (lastStep.length >= 4 || lastStep.some((item) => item.degree === note.degree)) return steps;
+        return [...steps.slice(0, -1), [...lastStep, note]];
+      }
+      return currentInput.length >= melodyQuestion.sequence.length ? currentInput : [...currentInput, note];
+    });
+    if (melodyMode === "free") {
+      handleAudioPlayback(() => playMelodySequence([melodyFrequencies[note.degree]]));
+    }
+  }
+
+  function addFreeMelodyStep() {
+    if (melodyMode !== "free") return;
+    setMelodyInput((currentInput) => {
+      const steps = Array.isArray(currentInput) ? currentInput : [];
+      if (steps.length === 0 || (Array.isArray(steps[steps.length - 1]) && steps[steps.length - 1].length === 0)) return steps;
+      return steps.length >= 12 ? steps : [...steps, []];
+    });
   }
 
   function clearMelodyInput() {
@@ -1649,7 +1721,7 @@ export default function App() {
 
   function checkRepeatedMelody() {
     const userSequence = melodyInput.map((note) => note.degree);
-    const isCorrect = melodyPatternsMatch(melodyQuestion.sequence, userSequence);
+    const isCorrect = melodySequencesMatch(melodyQuestion.sequence, userSequence);
     setMelodyFeedback({ isCorrect, kind: "repeat", correctPattern: melodyQuestion.sequence, userPattern: userSequence });
   }
 
@@ -1804,7 +1876,7 @@ export default function App() {
   const theoryUnlocked = isTheoryUnlocked(courseProgress) || hasPriorSetupLevel;
   const trainingUnlocked = isTrainingUnlocked(courseProgress) || hasPriorSetupLevel;
   const blitzUnlocked = isBlitzUnlocked(courseProgress) || ["student", "advanced"].includes(learnerSetup?.level) || learnerSetup?.goal === "exams";
-  const melodyUnlocked = isMelodyUnlocked(courseProgress) || learnerSetup?.goal === "exams";
+  const melodyUnlocked = isMelodyUnlocked(courseProgress) || learnerSetup?.goal === "exams" || learnerSetup?.level === "advanced";
   const chordBasicsUnlocked = hasCompletedTopics(courseProgress, basicChordsTopicIds) || setupUnlockedTopicIds.has("major-minor-triads");
   const seventhBasicsUnlocked = courseProgress.completedTopicIds.includes("seventh-chord-basics") || setupUnlockedTopicIds.has("seventh-chord-basics");
   const scalesBasicsUnlocked = courseProgress.completedTopicIds.includes("major-scale") || courseProgress.completedTopicIds.includes("natural-minor") || setupUnlockedTopicIds.has("major-scale") || setupUnlockedTopicIds.has("natural-minor");
@@ -1866,9 +1938,9 @@ export default function App() {
 
       {screen === screens.reference && <TheoryReferenceScreen t={t} onHome={() => goBack(screens.home)} />}
 
-      {screen === screens.practiceHub && <PracticeHubScreen t={t} setup={learnerSetup} courseProgress={courseProgress} listeningReady={listeningPracticeReady} blitzUnlocked={blitzPracticeReady} melodyUnlocked={melodyUnlocked} onListeningQuiz={() => { pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.levels); }} onBlitz={() => enterBlitzMode({ screen: screens.practiceHub, worldId: activeWorldId })} onMelody={() => openMelodyMode({ screen: screens.practiceHub, worldId: activeWorldId })} onOpenMiniGame={(gameId) => { setActiveMiniGame(gameId); pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.miniGame); }} />}
+      {screen === screens.practiceHub && <PracticeHubScreen t={t} setup={learnerSetup} courseProgress={courseProgress} listeningReady={listeningPracticeReady} blitzUnlocked={blitzPracticeReady} melodyUnlocked={true} onListeningQuiz={() => { pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.levels); }} onBlitz={() => enterBlitzMode({ screen: screens.practiceHub, worldId: activeWorldId })} onMelody={() => openMelodyMode({ screen: screens.practiceHub, worldId: activeWorldId })} onOpenMiniGame={(gameId) => { setActiveMiniGame(gameId); pushNavigation({ screen: screens.practiceHub, worldId: activeWorldId }); setScreen(screens.miniGame); }} />}
 
-      {screen === screens.miniGame && <MiniGameScreen gameId={activeMiniGame} t={t} setup={learnerSetup} courseProgress={courseProgress} onBack={() => goBack(screens.practiceHub)} onPlayTones={(tones, forceChord) => handleAudioPlayback(() => playExerciseTones(tones, forceChord))} onPlayRhythm={(pattern) => handleAudioPlayback(() => playRhythmPattern(pattern))} onResult={(isCorrect) => { const nextProgress = updateProgress(progress, selectedLevel, isCorrect); setProgress(nextProgress); saveProgress(nextProgress); }} />}
+      {screen === screens.miniGame && <MiniGameScreen gameId={activeMiniGame} t={t} setup={learnerSetup} courseProgress={courseProgress} onBack={() => goBack(screens.practiceHub)} onPlayTones={(tones, forceChord) => handleAudioPlayback(() => playExerciseTones(tones, forceChord))} onPlayMelody={(tones) => handleAudioPlayback(() => playMelodySequence(tones))} onPlayRhythm={(pattern) => handleAudioPlayback(() => playRhythmPattern(pattern))} onResult={(isCorrect) => { const nextProgress = updateProgress(progress, selectedLevel, isCorrect); setProgress(nextProgress); saveProgress(nextProgress); }} />}
 
       {!needsSetup && screen === screens.profile && <ProfileScreen t={t} setup={learnerSetup} language={language} onLanguage={changeLanguage} onResetProgress={resetAllProgress} />}
 
@@ -1883,8 +1955,9 @@ export default function App() {
           volume={volume}
           onVolumeChange={handleVolumeChange}
           onChooseMode={chooseMelodyMode}
-          onPlay={() => handleAudioPlayback(() => playMelodySequence(melodyQuestion.tones))}
+          onPlay={() => handleAudioPlayback(() => melodyMode === "free" ? playMelodyTimeline(getFreeMelodyToneSteps(melodyInput)) : playMelodySequence(melodyQuestion.tones))}
           onAddNote={addMelodyNote}
+          onAddStep={addFreeMelodyStep}
           onClear={clearMelodyInput}
           onCheck={checkRepeatedMelody}
           onChooseOption={chooseMelodyOption}
@@ -2423,7 +2496,7 @@ function PracticeHubScreen({ t, setup, courseProgress, listeningReady, blitzUnlo
   );
 }
 
-function MiniGameScreen({ gameId, t, setup, courseProgress, onBack, onPlayTones, onPlayRhythm, onResult }) {
+function MiniGameScreen({ gameId, t, setup, courseProgress, onBack, onPlayTones, onPlayMelody, onPlayRhythm, onResult }) {
   const game = t.practiceHub.miniGames.find((item) => item.id === gameId) || t.practiceHub.miniGames[0];
   const miniUnlocks = getMiniGameUnlocks(courseProgress, setup);
   const unlocked = miniUnlocks[gameId];
@@ -2440,9 +2513,9 @@ function MiniGameScreen({ gameId, t, setup, courseProgress, onBack, onPlayTones,
         {!unlocked && <div className="mini-feedback wrong"><Lock size={28} /><strong>{t.practiceHub.continueLessons}</strong></div>}
         {unlocked && gameId === miniGameIds.soundMatching && <SoundMatchingGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
         {unlocked && gameId === miniGameIds.intervalMemory && <IntervalMemoryGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
-        {unlocked && gameId === miniGameIds.noteMaze && <NoteMazeGame t={t} game={game} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.noteMaze && <NoteMazeGame t={t} game={game} onBack={onBack} onPlayMelody={onPlayMelody} onResult={onResult} />}
         {unlocked && gameId === miniGameIds.chordBuilder && <ChordBuilderGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
-        {unlocked && gameId === miniGameIds.melodicDirection && <MelodicDirectionGame t={t} game={game} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
+        {unlocked && gameId === miniGameIds.melodicDirection && <MelodicDirectionGame t={t} game={game} onBack={onBack} onPlayMelody={onPlayMelody} onResult={onResult} />}
         {unlocked && gameId === miniGameIds.rhythmTap && <RhythmTapGame t={t} game={game} onBack={onBack} onPlayRhythm={onPlayRhythm} onResult={onResult} />}
         {unlocked && gameId === miniGameIds.soundSymbol && <SoundSymbolGame t={t} game={game} setup={setup} courseProgress={courseProgress} onBack={onBack} onPlayTones={onPlayTones} onResult={onResult} />}
       </div>
@@ -2513,6 +2586,33 @@ function createSoundMatchingRound(courseProgress, setup, t) {
   };
 }
 
+function getPairMatchingPool(courseProgress, setup) {
+  const readyLevels = getMiniGameReadyLevels(courseProgress, setup);
+  const levelsForPairs = readyLevels.length > 0 ? readyLevels : [levels[0]];
+  const seen = new Set();
+
+  return levelsForPairs.flatMap((level) => {
+    const readiness = getCompletedPracticeReadiness(level, courseProgress, setup);
+    return (readiness.questions.length > 0 ? readiness.questions : level.questions).map((question) => ({ level, question }));
+  }).filter(({ question }) => {
+    const key = getQuestionKey(question);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return Array.isArray(question.tones) && question.tones.length > 0 && question.answer;
+  });
+}
+
+function createSoundMatchingPairs(courseProgress, setup) {
+  const pool = getPairMatchingPool(courseProgress, setup);
+  const fallbackPool = pool.length >= 4 ? pool : levels[0].questions.slice(0, 6).map((question) => ({ level: levels[0], question }));
+  return shuffleQuestions(fallbackPool).slice(0, Math.min(6, Math.max(4, fallbackPool.length))).map(({ level, question }, index) => ({
+    id: "pair-" + index,
+    levelId: level.id,
+    answer: question.answer,
+    tones: question.tones
+  }));
+}
+
 const soundSymbolMap = {
   C: "♪ C", D: "♪ D", E: "♪ E", F: "♪ F", G: "♪ G", A: "♪ A", B: "♪ B", "C+": "♪ C",
   Unison: "P1", "Minor 2nd": "m2", "Major 2nd": "M2", "Minor 3rd": "m3", "Major 3rd": "M3", "Perfect 4th": "P4", Tritone: "TT", "Perfect 5th": "P5", "Minor 6th": "m6", "Major 6th": "M6", "Minor 7th": "m7", "Major 7th interval": "M7", Octave: "P8",
@@ -2544,62 +2644,76 @@ function createSoundSymbolRound(courseProgress, setup, t) {
 
 function SoundMatchingGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
   const [phase, setPhase] = useState("ready");
-  const [roundIndex, setRoundIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [round, setRound] = useState(() => createSoundMatchingRound(courseProgress, setup, t));
+  const [pairs, setPairs] = useState(() => createSoundMatchingPairs(courseProgress, setup));
+  const [selectedSound, setSelectedSound] = useState(null);
+  const [matchedIds, setMatchedIds] = useState([]);
+  const [attempts, setAttempts] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const options = round.options;
+  const shuffledNames = useMemo(() => shuffleQuestions(pairs.map((pair) => pair.id)), [pairs]);
+  const score = matchedIds.length;
+  const totalPairs = pairs.length;
 
-  function nextRound() {
-    if (roundIndex + 1 >= MINI_GAME_ROUNDS) {
-      setPhase("result");
-      setFeedback(null);
-      return;
-    }
-    setRoundIndex((current) => current + 1);
-    setRound(createSoundMatchingRound(courseProgress, setup, t));
+  function reset(nextPhase = "ready") {
+    setPairs(createSoundMatchingPairs(courseProgress, setup));
+    setSelectedSound(null);
+    setMatchedIds([]);
+    setAttempts(0);
     setFeedback(null);
+    setPhase(nextPhase);
   }
 
-  function restart() {
-    setPhase("ready");
-    setRoundIndex(0);
-    setScore(0);
-    setRound(createSoundMatchingRound(courseProgress, setup, t));
-    setFeedback(null);
-  }
-
-  async function playRoundSound() {
+  async function playPairSound(pair) {
     setIsPlaying(true);
-    await onPlayTones(round.question.tones, round.level.id === "chords");
+    setSelectedSound(pair.id);
+    await onPlayTones(pair.tones, pair.levelId === "chords");
     window.setTimeout(() => setIsPlaying(false), 500);
   }
 
-  function answer(option) {
-    if (feedback) return;
-    const isCorrect = option === round.question.answer;
-    if (isCorrect) setScore((current) => current + 1);
-    setFeedback({
-      isCorrect,
-      answer: option,
-      detail: isCorrect ? t.practiceHub.soundCorrect(translateAnswer(round.question.answer, t)) : t.practiceHub.soundWrong(translateAnswer(round.question.answer, t))
-    });
+  function chooseName(pairId) {
+    if (!selectedSound || matchedIds.includes(pairId) || matchedIds.includes(selectedSound)) return;
+    const selectedPair = pairs.find((pair) => pair.id === selectedSound);
+    const namedPair = pairs.find((pair) => pair.id === pairId);
+    const isCorrect = selectedSound === pairId;
+    setAttempts((current) => current + 1);
     onResult?.(isCorrect);
+    if (isCorrect) {
+      const nextMatched = [...matchedIds, pairId];
+      setMatchedIds(nextMatched);
+      setSelectedSound(null);
+      setFeedback({ isCorrect: true, detail: t.practiceHub.soundCorrect(translateAnswer(namedPair.answer, t)) });
+      if (nextMatched.length >= pairs.length) window.setTimeout(() => setPhase("result"), 700);
+      return;
+    }
+    setFeedback({ isCorrect: false, detail: t.practiceHub.soundWrong(translateAnswer(selectedPair.answer, t)) });
+    window.setTimeout(() => {
+      setSelectedSound(null);
+      setFeedback(null);
+    }, 900);
   }
 
   return (
-    <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
+    <MiniGameShell t={t} game={game} phase={phase} round={matchedIds.length} totalRounds={totalPairs} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={() => reset("ready")} resultMeta={[t.practiceHub.attempts(attempts), t.practiceHub.matchedPairs(matchedIds.length, totalPairs)]}>
       <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
-      <button className={"sound-orb-button " + (isPlaying ? "playing" : "")} onClick={playRoundSound}>
-        <span className="sound-orb"><Headphones size={26} /></span>
-        <strong>{t.practiceHub.playSound}</strong>
-        <em>{feedback ? translateAnswer(round.question.answer, t) : t.practiceHub.soundOrb}</em>
-      </button>
-      <div className="mini-answer-grid orb-answer-grid">
-        {options.map((option) => <button className={feedback && option === round.question.answer ? "correct-answer" : ""} key={option} onClick={() => answer(option)}>{translateAnswer(option, t)}</button>)}
+      <div className="sound-pair-board">
+        <div className="sound-pair-column">
+          <span>{t.practiceHub.soundCards}</span>
+          {pairs.map((pair, index) => {
+            const matched = matchedIds.includes(pair.id);
+            return <button className={(selectedSound === pair.id ? "selected " : "") + (matched ? "matched " : "") + (isPlaying && selectedSound === pair.id ? "playing" : "")} key={pair.id} onClick={() => playPairSound(pair)} disabled={matched}><Headphones size={18} />{t.practiceHub.soundOrb} {index + 1}</button>;
+          })}
+        </div>
+        <div className="sound-pair-rail" aria-hidden="true">{pairs.map((pair) => <span className={matchedIds.includes(pair.id) ? "matched" : ""} key={pair.id} />)}</div>
+        <div className="sound-pair-column">
+          <span>{t.practiceHub.nameCards}</span>
+          {shuffledNames.map((pairId) => {
+            const pair = pairs.find((item) => item.id === pairId);
+            const matched = matchedIds.includes(pairId);
+            return <button className={matched ? "matched" : ""} key={pairId} onClick={() => chooseName(pairId)} disabled={matched || !selectedSound}>{translateAnswer(pair.answer, t)}</button>;
+          })}
+        </div>
       </div>
-      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={round.question.answer} onNext={nextRound} />}
+      {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer="" onNext={() => setFeedback(null)} rawAnswer />}
     </MiniGameShell>
   );
 }
@@ -2706,7 +2820,7 @@ function IntervalMemoryGame({ t, game, setup, courseProgress, onBack, onPlayTone
           const isOpen = flipped.some((item) => item.id === card.id) || matched.includes(card.id);
           const isMatched = matched.includes(card.id);
           return (
-            <button className={(isOpen ? "open " : "") + (isMatched ? "matched" : "")} key={card.id} onClick={() => flipCard(card)}>
+            <button className={"memory-" + card.kind + " " + (isOpen ? "open " : "") + (isMatched ? "matched" : "")} key={card.id} onClick={() => flipCard(card)}>
               <span className="memory-card-inner">
                 {isOpen ? (card.kind === "sound" ? <Headphones size={20} /> : translateAnswer(card.answer, t)) : "?"}
               </span>
@@ -2719,7 +2833,7 @@ function IntervalMemoryGame({ t, game, setup, courseProgress, onBack, onPlayTone
   );
 }
 
-function NoteMazeGame({ t, game, onBack, onPlayTones, onResult }) {
+function NoteMazeGame({ t, game, onBack, onPlayMelody, onResult }) {
   const sequences = [
     [0, 1, 2, 3],
     [2, 3, 4, 5],
@@ -2734,7 +2848,8 @@ function NoteMazeGame({ t, game, onBack, onPlayTones, onResult }) {
   const [feedback, setFeedback] = useState(null);
   const [mistake, setMistake] = useState(null);
   const sequence = sequences[roundIndex] || sequences[0];
-  const targetLabel = sequence.map((index) => translateAnswer(noteScaleIntro[index].name, t)).join(" → ");
+  const targetTones = sequence.map((index) => noteScaleIntro[index].tones[0]);
+  const targetLabel = sequence.map(() => "●").join("  ");
 
   function tapNote(index) {
     if (phase !== "playing" || feedback) return;
@@ -2749,7 +2864,7 @@ function NoteMazeGame({ t, game, onBack, onPlayTones, onResult }) {
       }, 760);
       return;
     }
-    onPlayTones(noteScaleIntro[index].tones, false);
+    onPlayMelody(noteScaleIntro[index].tones);
     const nextStep = stepIndex + 1;
     setStepIndex(nextStep);
     if (nextStep >= sequence.length) {
@@ -2781,14 +2896,19 @@ function NoteMazeGame({ t, game, onBack, onPlayTones, onResult }) {
   return (
     <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
       <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
-      <div className="maze-target"><span>{t.practiceHub.targetSequence}</span><strong>{targetLabel}</strong></div>
+      <div className="maze-target">
+        <span>{t.practiceHub.targetSequence}</span>
+        <strong>{targetLabel}</strong>
+        <button className="secondary-button" onClick={() => onPlayMelody(targetTones)}><Play size={16} />{t.practiceHub.playTargetSequence}</button>
+      </div>
       <div className="note-maze-grid">
         {noteScaleIntro.map((note, index) => {
           const passed = sequence.slice(0, stepIndex).includes(index);
           const active = sequence[stepIndex] === index;
           return (
             <button className={(passed ? "passed " : "") + (active ? "active " : "") + (mistake === index ? "mistake" : "")} key={note.name} onClick={() => tapNote(index)}>
-              {translateAnswer(note.name, t)}
+              <span className="maze-orb">♪</span>
+              <small>{index + 1}</small>
             </button>
           );
         })}
@@ -2807,13 +2927,29 @@ function getChordBuilderTargets(setup, courseProgress) {
     { id: "augmentedTriad", answer: "Augmented triad", root: "C", pieces: ["majorThird", "majorThird"], tones: [261.63, 329.63, 415.3] }
   ];
   const sevenths = [
-    { id: "dominantSeventh", answer: "Dominant 7th", root: "G", pieces: ["majorTriad", "minorSeventh"], tones: [196, 246.94, 293.66, 349.23] },
-    { id: "majorSeventh", answer: "Major 7th", root: "C", pieces: ["majorTriad", "majorSeventh"], tones: [261.63, 329.63, 392, 493.88] },
-    { id: "minorSeventh", answer: "Minor 7th chord", root: "A", pieces: ["minorTriad", "minorSeventh"], tones: [220, 261.63, 329.63, 392] },
-    { id: "halfDiminished", answer: "Half-diminished 7th", root: "B", pieces: ["diminishedTriad", "minorSeventh"], tones: [246.94, 293.66, 349.23, 440] },
-    { id: "diminishedSeventh", answer: "Diminished 7th", root: "B", pieces: ["diminishedTriad", "diminishedSeventh"], tones: [246.94, 293.66, 349.23, 415.3] }
+    { id: "dominantSeventh", answer: "Dominant 7th", root: "G", pieces: ["majorThird", "minorThird", "minorThird"], tones: [196, 246.94, 293.66, 349.23] },
+    { id: "majorSeventh", answer: "Major 7th", root: "C", pieces: ["majorThird", "minorThird", "majorThird"], tones: [261.63, 329.63, 392, 493.88] },
+    { id: "minorSeventh", answer: "Minor 7th chord", root: "A", pieces: ["minorThird", "majorThird", "minorThird"], tones: [220, 261.63, 329.63, 392] },
+    { id: "halfDiminished", answer: "Half-diminished 7th", root: "B", pieces: ["minorThird", "minorThird", "majorThird"], tones: [246.94, 293.66, 349.23, 440] },
+    { id: "diminishedSeventh", answer: "Diminished 7th", root: "B", pieces: ["minorThird", "minorThird", "minorThird"], tones: [246.94, 293.66, 349.23, 415.3] }
   ];
   return hasSevenths ? [...triads, ...sevenths] : triads;
+}
+
+const chordBuilderRoots = { C: 261.63, D: 293.66, G: 196, A: 220, B: 246.94 };
+const chordBuilderSemitones = { majorThird: 4, minorThird: 3 };
+
+function getBuiltChordTones(target, selectedPieces) {
+  const rootTone = chordBuilderRoots[target.root] || target.tones?.[0] || 261.63;
+  let semitones = 0;
+  const tones = [rootTone];
+
+  selectedPieces.forEach((piece) => {
+    semitones += chordBuilderSemitones[piece] || 0;
+    tones.push(rootTone * Math.pow(2, semitones / 12));
+  });
+
+  return tones;
 }
 
 function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones, onResult }) {
@@ -2824,9 +2960,8 @@ function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones,
   const [selected, setSelected] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const target = targets[roundIndex] || targets[0];
-  const pieceOptions = target.pieces.length > 2
-    ? ["majorTriad", "minorTriad", "diminishedTriad", "minorSeventh", "majorSeventh", "diminishedSeventh"]
-    : ["majorThird", "minorThird"];
+  const pieceOptions = ["majorThird", "minorThird"];
+  const builtChordTones = getBuiltChordTones(target, selected);
 
   function choosePiece(piece) {
     if (feedback || selected.length >= target.pieces.length) return;
@@ -2835,10 +2970,14 @@ function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones,
 
   function checkChord() {
     const isCorrect = selected.length === target.pieces.length && selected.every((piece, index) => piece === target.pieces[index]);
+    const wrongIndex = target.pieces.findIndex((piece, index) => selected[index] !== piece);
+    const wrongDetail = wrongIndex >= 0
+      ? t.practiceHub.chordPieceWrong(wrongIndex + 1, t.practiceHub.intervalPieces[target.pieces[wrongIndex]], selected[wrongIndex] ? t.practiceHub.intervalPieces[selected[wrongIndex]] : "...")
+      : t.practiceHub.chordWrong(target.pieces.map((piece) => t.practiceHub.intervalPieces[piece]).join(" + "));
     if (isCorrect) setScore((current) => current + 1);
     setFeedback({
       isCorrect,
-      detail: isCorrect ? t.practiceHub.chordCorrect(translateAnswer(target.answer, t)) : t.practiceHub.chordWrong(target.pieces.map((piece) => t.practiceHub.intervalPieces[piece]).join(" + "))
+      detail: isCorrect ? t.practiceHub.chordCorrect(translateAnswer(target.answer, t)) : wrongDetail
     });
     onResult?.(isCorrect);
     if (isCorrect) onPlayTones(target.tones, true);
@@ -2873,6 +3012,7 @@ function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones,
       <div className="builder-row">{pieceOptions.map((piece) => <button key={piece} onClick={() => choosePiece(piece)}>{t.practiceHub.intervalPieces[piece]}</button>)}</div>
       <div className="mini-inline-actions">
         <button onClick={() => onPlayTones(target.tones, true)}><Play size={16} />{t.practiceHub.playTarget}</button>
+        <button disabled={selected.length === 0} onClick={() => onPlayTones(builtChordTones, true)}><Music2 size={16} />{t.practiceHub.playCompleted}</button>
         <button disabled={selected.length !== target.pieces.length || Boolean(feedback)} onClick={checkChord}>{t.practiceHub.checkMini}</button>
         <button onClick={() => { setSelected([]); setFeedback(null); }}><RotateCcw size={16} />{t.practiceHub.resetMini}</button>
       </div>
@@ -2881,19 +3021,20 @@ function ChordBuilderGame({ t, game, setup, courseProgress, onBack, onPlayTones,
   );
 }
 
-function MelodicDirectionGame({ t, game, onBack, onPlayTones, onResult }) {
+function MelodicDirectionGame({ t, game, onBack, onPlayMelody, onResult }) {
   const rounds = [
-    { tones: [261.63, 293.66, 329.63], contour: "up" },
-    { tones: [392, 349.23, 329.63], contour: "down" },
-    { tones: [329.63, 329.63, 329.63], contour: "same" },
-    { tones: [261.63, 329.63, 293.66], contour: "upDown" },
-    { tones: [392, 329.63, 349.23], contour: "downUp" }
+    { sequence: [0, 1, 2, 4], contour: "up" },
+    { sequence: [5, 4, 2, 1], contour: "down" },
+    { sequence: [3, 3, 3, 3], contour: "same" },
+    { sequence: [1, 3, 5, 4], contour: "upDown" },
+    { sequence: [5, 3, 1, 2], contour: "downUp" }
   ];
   const [phase, setPhase] = useState("ready");
   const [roundIndex, setRoundIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const round = rounds[roundIndex] || rounds[0];
+  const tones = getMelodyTones(round.sequence);
   const options = ["up", "down", "same", "upDown", "downUp"];
 
   function choose(option) {
@@ -2927,9 +3068,9 @@ function MelodicDirectionGame({ t, game, onBack, onPlayTones, onResult }) {
   return (
     <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={MINI_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
       <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
-      <button className="secondary-button" onClick={() => onPlayTones(round.tones, false)}><Play size={18} />{t.practiceHub.playSound}</button>
+      <button className="secondary-button" onClick={() => onPlayMelody(tones)}><Play size={18} />{t.practiceHub.playSound}</button>
       <div className={"melody-contour-line " + (feedback ? round.contour : "")}>
-        <span /><span /><span /><span />
+        {round.sequence.map((degree, index) => <span style={{ "--dot-left": (index / Math.max(round.sequence.length - 1, 1)) * 100 + "%", "--dot-top": (7 - degree) * 10 + 10 + "%" }} key={index} />)}
       </div>
       <div className="mini-answer-grid">
         {options.map((option) => <button className={feedback && option === round.contour ? "correct-answer" : ""} key={option} onClick={() => choose(option)}>{t.practiceHub.directionOptions[option]}</button>)}
@@ -2941,21 +3082,28 @@ function MelodicDirectionGame({ t, game, onBack, onPlayTones, onResult }) {
 
 function RhythmTapGame({ t, game, onBack, onPlayRhythm, onResult }) {
   const rounds = [
-    [0, 0.48, 0.96],
-    [0, 0.36, 0.72, 1.18],
-    [0, 0.5, 0.74, 1.28]
+    [0, 0.62, 0.86],
+    [0, 0.26, 0.82],
+    [0, 0.48, 0.96, 1.44],
+    [0, 0.36, 0.84, 1.08]
   ];
   const [phase, setPhase] = useState("ready");
   const [roundIndex, setRoundIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [taps, setTaps] = useState([]);
   const [feedback, setFeedback] = useState(null);
+  const [playingBeat, setPlayingBeat] = useState(null);
   const pattern = rounds[roundIndex] || rounds[0];
 
   function playPattern() {
     setTaps([]);
     setFeedback(null);
+    setPlayingBeat(null);
     onPlayRhythm?.(pattern);
+    pattern.forEach((offset, index) => {
+      window.setTimeout(() => setPlayingBeat(index), offset * 1000);
+    });
+    window.setTimeout(() => setPlayingBeat(null), (Math.max(...pattern) + 0.34) * 1000);
   }
 
   function tapBeat() {
@@ -2986,6 +3134,7 @@ function RhythmTapGame({ t, game, onBack, onPlayRhythm, onResult }) {
     setRoundIndex((current) => current + 1);
     setTaps([]);
     setFeedback(null);
+    setPlayingBeat(null);
   }
 
   function restart() {
@@ -2994,13 +3143,14 @@ function RhythmTapGame({ t, game, onBack, onPlayRhythm, onResult }) {
     setScore(0);
     setTaps([]);
     setFeedback(null);
+    setPlayingBeat(null);
   }
 
   return (
     <MiniGameShell t={t} game={game} phase={phase} round={roundIndex} totalRounds={RHYTHM_GAME_ROUNDS} score={score} onStart={() => setPhase("playing")} onBack={onBack} onRestart={restart}>
       <MiniGameHeader title={game.title} text={game.instructions} unlocked lockedText="" />
       <button className="secondary-button" onClick={playPattern}><Play size={18} />{t.practiceHub.playSound}</button>
-      <div className="rhythm-dots">{pattern.map((_, index) => <span className={index < taps.length ? "active" : ""} key={index} />)}</div>
+      <div className="rhythm-dots">{pattern.map((_, index) => <span className={(index < taps.length ? "active " : "") + (playingBeat === index ? "playing" : "")} key={index} />)}</div>
       <button className="primary-button rhythm-tap-button" onClick={tapBeat}>{t.practiceHub.tapBeat}</button>
       {feedback && <MiniFeedback t={t} feedback={feedback} correctAnswer={feedback.detail} onNext={nextRound} rawAnswer />}
     </MiniGameShell>
@@ -3154,8 +3304,11 @@ function WorldDetailScreen({ world, t, setup, courseProgress, melodyUnlocked, bl
   );
 }
 
-function MelodyScreen({ t, mode, question, input, feedback, audioPlaying, volume, onVolumeChange, onChooseMode, onPlay, onAddNote, onClear, onCheck, onChooseOption, onComplete, onNext, onHome }) {
+function MelodyScreen({ t, mode, question, input, feedback, audioPlaying, volume, onVolumeChange, onChooseMode, onPlay, onAddNote, onAddStep, onClear, onCheck, onChooseOption, onComplete, onNext, onHome }) {
   const canCheckRepeat = mode === "repeat" && input.length === question.sequence.length && !feedback;
+  const freeSteps = getFreeMelodySteps(input);
+  const freeFeedback = mode === "free" ? getFreeMelodyFeedback(input, t) : "";
+  const canPlay = mode !== "free" || freeSteps.length > 0;
 
   return (
     <section className="page-stack melody-screen">
@@ -3176,7 +3329,7 @@ function MelodyScreen({ t, mode, question, input, feedback, audioPlaying, volume
           <p>{t.melody.instructions[mode]}</p>
         </div>
 
-        <MelodyPlayerPanel t={t} onPlay={onPlay} disabled={audioPlaying} volume={volume} onVolumeChange={onVolumeChange} />
+        <MelodyPlayerPanel t={t} onPlay={onPlay} disabled={audioPlaying || !canPlay} volume={volume} onVolumeChange={onVolumeChange} />
 
         {mode === "repeat" && (
           <div className="melody-practice-area">
@@ -3205,6 +3358,24 @@ function MelodyScreen({ t, mode, question, input, feedback, audioPlaying, volume
             <div className="melody-note-grid short">
               {melodyNoteButtons.map((note) => <button className="answer-button" key={note.name} onClick={() => onComplete(note)} disabled={Boolean(feedback)}><strong>{translateAnswer(note.name, t)}</strong></button>)}
             </div>
+          </div>
+        )}
+
+        {mode === "free" && (
+          <div className="melody-practice-area free-play">
+            <div className="melody-input-display phrase harmony-timeline">
+              {freeSteps.length === 0 && <span>{t.melody.yourMelody}</span>}
+              {freeSteps.map((step, index) => (
+                <span className={"melody-step " + (step.length > 1 ? "stacked" : "")} key={index}>
+                  {step.map((note) => <i key={note.name}>{translateAnswer(note.name, t)}</i>)}
+                </span>
+              ))}
+            </div>
+            <div className="melody-note-grid">
+              {melodyNoteButtons.map((note) => <button className="answer-button" key={note.name} onClick={() => onAddNote(note)}><strong>{translateAnswer(note.name, t)}</strong></button>)}
+            </div>
+            {freeFeedback && <div className="melody-free-feedback"><strong>{t.melody.feedbackTitle}</strong><span>{freeFeedback}</span></div>}
+            <div className="result-actions"><button className="secondary-button" onClick={onAddStep} disabled={freeSteps.length === 0}>{t.melody.newStep}</button><button className="secondary-button" onClick={onClear}>{t.melody.clear}</button><button className="primary-button" onClick={onPlay} disabled={!canPlay || audioPlaying}>{t.melody.replayOwn}</button></div>
           </div>
         )}
 

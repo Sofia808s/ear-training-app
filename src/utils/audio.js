@@ -175,6 +175,39 @@ function playSoftUiTone(context, startTime, frequency = 660, gainPeak = 0.04) {
   oscillator.stop(startTime + 0.24);
 }
 
+function playRhythmClickTone(context, startTime) {
+  const oscillator = context.createOscillator();
+  const noise = context.createBufferSource();
+  const clickGain = context.createGain();
+  const toneGain = context.createGain();
+  const buffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.045), context.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let index = 0; index < data.length; index += 1) {
+    data[index] = (Math.random() * 2 - 1) * (1 - index / data.length);
+  }
+
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(1120, startTime);
+  toneGain.gain.setValueAtTime(0.0001, startTime);
+  toneGain.gain.exponentialRampToValueAtTime(0.24, startTime + 0.006);
+  toneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
+
+  noise.buffer = buffer;
+  clickGain.gain.setValueAtTime(0.0001, startTime);
+  clickGain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.004);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.055);
+
+  oscillator.connect(toneGain);
+  noise.connect(clickGain);
+  toneGain.connect(masterGain);
+  clickGain.connect(masterGain);
+  oscillator.start(startTime);
+  noise.start(startTime);
+  oscillator.stop(startTime + 0.11);
+  noise.stop(startTime + 0.06);
+}
+
 export async function playUiClickSound() {
   return runExclusivePlayback(0.18, (context, startTime) => {
     playSoftUiTone(context, startTime, 620, 0.025);
@@ -458,13 +491,32 @@ export async function playMelodySequence(tones) {
   });
 }
 
+export async function playMelodyTimeline(steps) {
+  const safeSteps = Array.isArray(steps)
+    ? steps.map((step) => (Array.isArray(step) ? step : [step]).filter((tone) => Number.isFinite(tone))).filter((step) => step.length > 0)
+    : [];
+  if (safeSteps.length === 0) return false;
+
+  const spacing = 0.54;
+  const duration = 0.42;
+  const totalDuration = (safeSteps.length - 1) * spacing + duration + 0.08;
+
+  return runExclusivePlayback(totalDuration, (context, startTime) => {
+    safeSteps.forEach((step, index) => {
+      step.forEach((tone) => {
+        playTone(context, tone, startTime + index * spacing, duration);
+      });
+    });
+  });
+}
+
 export async function playRhythmPattern(pattern = [0, 0.42, 0.84, 1.26]) {
   const safePattern = Array.isArray(pattern) && pattern.length > 0 ? pattern : [0, 0.42, 0.84, 1.26];
   const totalDuration = Math.max(...safePattern) + 0.22;
 
   return runExclusivePlayback(totalDuration, (context, startTime) => {
     safePattern.forEach((offset) => {
-      playSoftUiTone(context, startTime + offset, 760, 0.05);
+      playRhythmClickTone(context, startTime + offset);
     });
   });
 }

@@ -1786,6 +1786,51 @@ p {
   border-color: rgba(216, 180, 254, 0.32);
 }
 
+.melody-input-display.harmony-timeline {
+  align-items: stretch;
+}
+
+.melody-input-display .melody-step {
+  min-width: 52px;
+  min-height: 62px;
+  height: auto;
+  padding: 6px;
+}
+
+.melody-step i {
+  display: block;
+  width: 100%;
+  min-height: 20px;
+  border-radius: 999px;
+  color: #f8fafc;
+  font-style: normal;
+  line-height: 1.3;
+  background: rgba(34, 211, 238, 0.12);
+}
+
+.melody-step.stacked {
+  gap: 3px;
+  border-color: rgba(168, 85, 247, 0.48);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.22), rgba(14, 165, 233, 0.12));
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.16);
+}
+
+.melody-free-feedback {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  color: #dbeafe;
+  background: rgba(2, 6, 23, 0.42);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+}
+
+.melody-free-feedback strong {
+  color: #bfdbfe;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
 .melody-note-grid,
 .melody-option-grid {
   display: grid;
@@ -4352,6 +4397,13 @@ button:active:not(:disabled),
   box-shadow: 0 0 22px rgba(34, 211, 238, 0.34);
 }
 
+.rhythm-dots span.playing {
+  background: #f8fafc;
+  box-shadow: 0 0 34px rgba(248, 250, 252, 0.68), 0 0 58px rgba(34, 211, 238, 0.42);
+  transform: scale(1.42);
+  animation: beatPop 0.22s ease both;
+}
+
 .rhythm-tap-button {
   justify-self: center;
   min-width: 220px;
@@ -4508,6 +4560,69 @@ button:active:not(:disabled),
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.sound-pair-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.sound-pair-column {
+  display: grid;
+  gap: 10px;
+}
+
+.sound-pair-column > span {
+  color: #bfdbfe;
+  font-size: 0.76rem;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.sound-pair-column button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 58px;
+  border-radius: 16px;
+  color: #e0f2fe;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(148, 163, 255, 0.18);
+  font-weight: 1000;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sound-pair-column button.selected,
+.sound-pair-column button.playing {
+  border-color: rgba(34, 211, 238, 0.54);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.2);
+}
+
+.sound-pair-column button.matched {
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.52);
+  background: rgba(22, 163, 74, 0.2);
+}
+
+.sound-pair-rail {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+}
+
+.sound-pair-rail span {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.sound-pair-rail span.matched {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.25), rgba(74, 222, 128, 0.85), rgba(34, 211, 238, 0.25));
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.24);
+}
+
 .mini-answer-grid button.correct-answer {
   border-color: rgba(74, 222, 128, 0.48);
   background: linear-gradient(135deg, rgba(22, 163, 74, 0.28), rgba(14, 165, 233, 0.18));
@@ -4579,6 +4694,18 @@ button:active:not(:disabled),
   box-shadow: 0 0 26px rgba(74, 222, 128, 0.16);
 }
 
+.memory-card-grid button.memory-sound:not(.open) {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(34, 211, 238, 0.18), transparent 56%),
+    rgba(2, 6, 23, 0.5);
+}
+
+.memory-card-grid button.memory-name:not(.open) {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.18), transparent 56%),
+    rgba(2, 6, 23, 0.5);
+}
+
 .maze-target {
   display: grid;
   gap: 8px;
@@ -4595,6 +4722,11 @@ button:active:not(:disabled),
   text-transform: uppercase;
 }
 
+.maze-target strong {
+  color: #e0f2fe;
+  letter-spacing: 0.18em;
+}
+
 .note-maze-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4602,6 +4734,9 @@ button:active:not(:disabled),
 }
 
 .note-maze-grid button {
+  display: grid;
+  place-items: center;
+  gap: 4px;
   min-height: 70px;
   border-radius: 18px;
   color: #f8fafc;
@@ -4609,6 +4744,21 @@ button:active:not(:disabled),
   font-weight: 1000;
   background: rgba(2, 6, 23, 0.42);
   border: 1px solid rgba(148, 163, 255, 0.18);
+}
+
+.maze-orb {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.24), rgba(168, 85, 247, 0.14));
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.18);
+}
+
+.note-maze-grid button small {
+  color: rgba(226, 232, 240, 0.52);
+  font-size: 0.72rem;
 }
 
 .note-maze-grid button.active {
@@ -4660,6 +4810,11 @@ button:active:not(:disabled),
   transform: translateY(-2px);
 }
 
+.builder-row button {
+  min-height: 58px;
+  font-size: 0.95rem;
+}
+
 .melody-contour-line {
   position: relative;
   display: flex;
@@ -4691,7 +4846,9 @@ button:active:not(:disabled),
 .melody-contour-line.downUp::before { clip-path: polygon(0 0, 50% 50%, 100% 0, 100% 100%, 0 100%); height: 36px; background: rgba(168, 85, 247, 0.42); }
 
 .melody-contour-line span {
-  position: relative;
+  position: absolute;
+  left: var(--dot-left);
+  top: var(--dot-top);
   z-index: 1;
   width: 16px;
   height: 16px;
@@ -4699,6 +4856,7 @@ button:active:not(:disabled),
   background: #e0f2fe;
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.36);
   animation: orbBreathe 1.8s ease-in-out infinite;
+  transform: translate(-50%, -50%);
 }
 
 @keyframes noteParticleDrift {
@@ -4725,6 +4883,12 @@ button:active:not(:disabled),
   0%, 100% { transform: translateX(0); }
   30% { transform: translateX(-5px); }
   60% { transform: translateX(5px); }
+}
+
+@keyframes beatPop {
+  0% { transform: scale(0.8); }
+  55% { transform: scale(1.48); }
+  100% { transform: scale(1.2); }
 }
 
 .compact-lesson-intro {
@@ -5067,4 +5231,8 @@ button:active:not(:disabled),
   .path-world-section::before { left: 42px; }
   .bottom-nav { bottom: 10px; border-radius: 20px; }
   .bottom-nav button { min-height: 52px; }
+  .sound-pair-board { grid-template-columns: 1fr; }
+  .sound-pair-rail { display: none; }
+  .memory-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .note-maze-grid { grid-template-columns: repeat(4, minmax(58px, 1fr)); gap: 8px; }
 }

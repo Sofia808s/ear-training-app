@@ -5236,3 +5236,562 @@ button:active:not(:disabled),
   .memory-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .note-maze-grid { grid-template-columns: repeat(4, minmax(58px, 1fr)); gap: 8px; }
 }
+
+/* Final responsive safety layer: preserve the visual style while preventing mobile overlap. */
+html {
+  min-width: 320px;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+.app-shell,
+.page-stack,
+.training-layout,
+.result-layout,
+.path-screen,
+.practice-hub-screen,
+.profile-screen,
+.progress-dashboard,
+.mini-game-screen,
+.training-card,
+.result-card,
+.lesson-card,
+.mini-play-card,
+.profile-panel,
+.practice-mode-card,
+.path-node,
+.path-world-section,
+.setup-card,
+.pre-intro-card {
+  min-width: 0;
+}
+
+.app-shell {
+  min-height: 100dvh;
+  padding-bottom: calc(124px + env(safe-area-inset-bottom));
+}
+
+h1,
+h2,
+h3,
+p,
+strong,
+span,
+small,
+em,
+button {
+  overflow-wrap: anywhere;
+}
+
+.hero-copy h1,
+.training-card h1,
+.result-card h1,
+.practice-hero h1,
+.profile-hero h1,
+.path-hero h1,
+.setup-card h1,
+.pre-intro-card h1,
+.cinematic-slide h1 {
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.primary-button,
+.secondary-button,
+.back-button,
+.answer-button,
+.practice-mode-card,
+.mini-coming-card,
+.mini-answer-grid button,
+.builder-row button,
+.sound-pair-column button,
+.setup-choice button,
+.bottom-nav button {
+  min-width: 0;
+  white-space: normal;
+}
+
+.top-bar,
+.nav-actions,
+.hero-actions,
+.result-actions,
+.mini-inline-actions,
+.world-detail-nav,
+.transition-actions,
+.onboarding-actions {
+  flex-wrap: wrap;
+}
+
+.player-panel,
+.training-card,
+.lesson-card,
+.mini-game-stage,
+.mini-full-card,
+.practice-hero,
+.profile-hero,
+.path-hero,
+.progress-stage-map,
+.setup-card,
+.pre-intro-card {
+  max-width: 100%;
+}
+
+.bottom-nav {
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: min(560px, calc(100vw - 20px));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bottom-nav button {
+  min-width: 0;
+}
+
+.bottom-nav span {
+  max-width: 100%;
+  font-size: clamp(0.66rem, 2.5vw, 0.78rem);
+  line-height: 1.1;
+}
+
+.cinematic-intro,
+.pre-intro-screen,
+.setup-screen {
+  min-height: 100dvh;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cinematic-slide,
+.pre-intro-card,
+.setup-card {
+  margin-block: auto;
+}
+
+.memory-card-grid,
+.mini-answer-grid,
+.builder-row,
+.note-maze-grid,
+.melody-note-grid,
+.melody-option-grid,
+.practice-mode-grid,
+.profile-grid,
+.mini-play-grid,
+.world-action-grid,
+.summary-grid,
+.level-grid,
+.answer-grid,
+.progress-grid,
+.weekly-calendar,
+.dashboard-card-grid,
+.dashboard-progress-grid,
+.course-grid,
+.topic-grid,
+.path-topic-list,
+.motivation-strip {
+  min-width: 0;
+}
+
+.progress-stage-map,
+.progress-dashboard,
+.glowing-progress-path {
+  max-width: 100%;
+}
+
+.glowing-progress-path {
+  aspect-ratio: 1 / 0.78;
+  min-height: clamp(260px, 52vw, 520px);
+}
+
+.stage-crown {
+  width: clamp(58px, 13vw, 86px);
+  height: clamp(58px, 13vw, 86px);
+}
+
+.mini-session,
+.mini-start-panel,
+.mini-result-panel {
+  min-height: clamp(320px, 62dvh, 680px);
+}
+
+.memory-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+}
+
+.memory-card-grid button {
+  min-height: clamp(58px, 16vw, 80px);
+}
+
+.note-maze-grid {
+  grid-template-columns: repeat(4, minmax(48px, 1fr));
+}
+
+.note-maze-grid button {
+  min-height: clamp(54px, 15vw, 76px);
+}
+
+.chord-stack {
+  min-height: clamp(132px, 28vw, 190px);
+}
+
+.melody-input-display {
+  max-width: 100%;
+}
+
+.melody-input-display span {
+  min-width: clamp(40px, 12vw, 54px);
+}
+
+.sound-pair-board {
+  min-width: 0;
+}
+
+.sound-pair-column button,
+.mini-answer-grid button,
+.symbol-grid .symbol-card {
+  min-height: clamp(48px, 12vw, 82px);
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    padding-inline: clamp(12px, 4vw, 20px);
+  }
+
+  .top-bar {
+    width: 100%;
+  }
+
+  .course-layout,
+  .topic-detail,
+  .lesson-layout,
+  .profile-grid,
+  .progress-stage-map,
+  .path-hero,
+  .practice-hero,
+  .profile-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-stage-map {
+    min-height: auto;
+  }
+
+  .progress-stage-map .glowing-progress-path {
+    width: min(520px, 100%);
+    min-height: clamp(280px, 68vw, 440px);
+  }
+
+  .practice-mode-grid,
+  .mini-play-grid,
+  .mini-game-grid,
+  .topic-grid,
+  .course-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 12px 12px calc(116px + env(safe-area-inset-bottom));
+  }
+
+  .top-bar,
+  .page-stack,
+  .training-layout,
+  .result-layout,
+  .path-screen,
+  .practice-hub-screen,
+  .profile-screen,
+  .progress-dashboard,
+  .mini-game-screen {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .brand-button {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .brand-icon,
+  .icon-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .nav-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-actions button,
+  .language-switcher {
+    width: 100%;
+  }
+
+  .training-card,
+  .result-card,
+  .lesson-card,
+  .mini-game-stage,
+  .mini-full-card,
+  .practice-hero,
+  .profile-hero,
+  .path-hero,
+  .progress-stage-map,
+  .profile-panel,
+  .practice-mode-card,
+  .mini-coming-card,
+  .setup-card,
+  .pre-intro-card {
+    padding: clamp(14px, 4.5vw, 20px);
+    border-radius: 18px;
+  }
+
+  .training-card,
+  .mini-game-stage,
+  .mini-full-card {
+    gap: 14px;
+  }
+
+  .training-card h1,
+  .result-card h1,
+  .practice-hero h1,
+  .profile-hero h1,
+  .path-hero h1,
+  .setup-card h1,
+  .pre-intro-card h1,
+  .cinematic-slide h1 {
+    font-size: clamp(1.72rem, 9vw, 2.7rem);
+  }
+
+  .training-header p,
+  .practice-hero p,
+  .profile-hero p,
+  .path-hero p,
+  .setup-card > p,
+  .pre-intro-card p,
+  .cinematic-slide p {
+    font-size: clamp(0.92rem, 3.8vw, 1.04rem);
+    line-height: 1.45;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .back-button,
+  .answer-button,
+  .reference-button {
+    min-height: 46px;
+    padding-inline: 12px;
+  }
+
+  .play-button {
+    min-height: 82px;
+    font-size: clamp(1.1rem, 5.4vw, 1.5rem);
+  }
+
+  .player-panel {
+    padding: 14px;
+  }
+
+  .wave-lines {
+    min-height: 52px;
+  }
+
+  .answer-grid,
+  .melody-option-grid,
+  .mini-answer-grid,
+  .symbol-grid,
+  .builder-row,
+  .practice-mode-grid,
+  .mini-play-grid,
+  .profile-grid,
+  .progress-grid,
+  .dashboard-card-grid,
+  .dashboard-progress-grid,
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .melody-mode-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .melody-note-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .melody-note-grid .answer-button {
+    justify-content: center;
+    min-height: 50px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .melody-note-grid .answer-button strong {
+    font-size: 0.95rem;
+  }
+
+  .melody-player-panel,
+  .volume-control,
+  .training-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .memory-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .sound-pair-board {
+    grid-template-columns: 1fr;
+  }
+
+  .sound-pair-rail {
+    display: none;
+  }
+
+  .note-maze-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .maze-orb {
+    width: 28px;
+    height: 28px;
+  }
+
+  .melody-contour-line {
+    min-height: 96px;
+  }
+
+  .rhythm-dots {
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .rhythm-dots span {
+    width: 16px;
+    height: 16px;
+  }
+
+  .rhythm-tap-button {
+    min-width: 0;
+    width: 100%;
+    min-height: 64px;
+  }
+
+  .mini-game-hud {
+    flex-wrap: wrap;
+  }
+
+  .bottom-nav {
+    width: min(100vw - 12px, 560px);
+    gap: 4px;
+    padding: 7px;
+    border-radius: 18px;
+  }
+
+  .bottom-nav button {
+    min-height: 48px;
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-shell {
+    padding-inline: 8px;
+  }
+
+  .memory-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .note-maze-grid,
+  .melody-note-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bottom-nav span {
+    font-size: 0.62rem;
+  }
+
+  .bottom-nav svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-shell {
+    padding-block: 8px calc(94px + env(safe-area-inset-bottom));
+  }
+
+  .top-bar {
+    margin-bottom: 12px;
+  }
+
+  .cinematic-intro,
+  .pre-intro-screen,
+  .setup-screen {
+    align-items: start;
+    padding-block: 10px calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .cinematic-slide,
+  .pre-intro-card,
+  .setup-card {
+    margin-block: 0;
+  }
+
+  .pre-intro-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+  }
+
+  .intro-logo-reveal,
+  .intro-piano-glow,
+  .intro-orbit {
+    opacity: 0.45;
+  }
+
+  .training-card,
+  .mini-full-card,
+  .practice-hero,
+  .profile-hero,
+  .path-hero,
+  .progress-stage-map {
+    padding: 12px;
+  }
+
+  .mini-session,
+  .mini-start-panel,
+  .mini-result-panel {
+    min-height: auto;
+  }
+
+  .play-button {
+    min-height: 62px;
+  }
+
+  .bottom-nav {
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav button {
+    min-height: 42px;
+  }
+}
